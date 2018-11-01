@@ -13,29 +13,29 @@ from keras.layers import Conv2D, Flatten, Dense
 
 KERAS_BACKEND = 'tensorflow'
 
-ENV_NAME = 'CarRacing-v0' # Gymの環境名
-ENV_NAME = 'VideoPinball-v0' # Gymの環境名
+#ENV_NAME = 'CarRacing-v0' # Gymの環境名
+#ENV_NAME = 'VideoPinball-v0' # Gymの環境名
 ENV_NAME = 'Breakout-v0' # Gymの環境名
 
 FRAME_HEIGHT = 84 # リサイズ後のフレームの高さ
 FRAME_WIDTH = 84 # リサイズ後のフレーム幅
-NUM_EPISODES = 12000 # プレイするエピソード数
+#NUM_EPISODES = 12000 # プレイするエピソード数
 NUM_EPISODES = 1000000 # プレイするエピソード数
 STATE_LENGTH = 4 # 状態を構成するフレーム数
 GAMMA = 0.99 # 割引率
-EXPLORATION_STEPS = 100000 # ε-greedey法のεが減少していくフレーム数
+EXPLORATION_STEPS = 1000000 # ε-greedey法のεが減少していくフレーム数
 INITIAL_EPSILON = 1.0 # ε-greedy法のεの初期値
 FINAL_EPSILON = 0.1 # ε-greedy法のεの終値
-INITIAL_REPLAY_SIZE = 20000 # 学習前に事前確保するReplay Memory数
+#INITIAL_REPLAY_SIZE = 20000 # 学習前に事前確保するReplay Memory数
 INITIAL_REPLAY_SIZE = 50000 # 学習前に事前確保するReplay Memory数(本家実装)
-NUM_REPLAY_MEMORY = 400000 # Replay Memory数
+#NUM_REPLAY_MEMORY = 400000 # Replay Memory数
 NUM_REPLAY_MEMORY = 1000000 # Replay Memory数(本家実装)
 BATCH_SIZE = 32 # バッチサイズ
 TARGET_UPDATE_INTERVAL = 10000 # Target Networkの更新をする間隔
 ACTION_INTERVAL = 4 # フレームスキップ数
 TRAIN_INTERVAL = 4 # 学習を行なう間隔
 LEARNING_RATE = 0.00025 # RMSPropで使われる学習率
-MOMENTUM = 0.25 # RSMPropで使われるモメンタム
+MOMENTUM = 0.95 # RSMPropで使われるモメンタム
 MIN_GRAD = 0.01 # RSMPropで使われる0で割るのを防ぐための値
 SAVE_INTERVAL = 300000  # Networkを保存する間隔
 NO_OP_STEPS = 30 # エピソード開始時に「何もしない」最大フレーム数
@@ -131,7 +131,7 @@ class Agent():
 		y = tf.placeholder(tf.float32, [None], name='Teacher_Signal') # 教師信号
 
 		with tf.variable_scope('1-Hot_Vecor_Generator'):
-			a_one_hot = tf.one_hot(a, self.num_actions, 2.0, 0.0) # 行動をone hot vectorに変換する
+			a_one_hot = tf.one_hot(a, self.num_actions, 1.0, 0.0) # 行動をone hot vectorに変換する
 		with tf.variable_scope('Q_Value_Calculator'):
 			q_value = tf.reduce_sum(tf.multiply(self.q_values, a_one_hot), reduction_indices=1) # 行動のQ値を計算
 
@@ -343,7 +343,7 @@ def main():
 				last_observation = observation
 				action = agent.get_action(state) # 行動を選択
 				observation, reward, terminal, _ = env.step(action) # 行動を実行して、次の画面、報酬、終了判定を返す
-				# env.render() # 画面出力
+				env.render() # 画面出力
 				processed_observation = preprocess(observation, last_observation) # 画面の前処理
 				state = agent.run(state, action, reward, terminal, processed_observation) # 学習を行い、次の状態を返す
 	else:  # Test mode
