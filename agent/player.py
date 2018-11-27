@@ -9,6 +9,9 @@ class Player():
 		self.epsilon_step = (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORATION_STEPS # εの減少率
 		self.t = 0 # タイムステップ
 		self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
+		self.average_total_reward = 0
+		self.advise_memory = np.array([[]])
+		self.action_memory = np.array([[]])
 		
 		# Replay Memoryの構築
 		self.replay_memory = deque()
@@ -43,7 +46,7 @@ class Player():
 
 				# Language Networkの構築
 				with tf.variable_scope("Langage_Network"):
-					self.la, self.action, language_network = self.build_language_network()
+					self.la, self.action, self.language_network = self.build_language_network()
 
 			# Sessionの構築
 			#self.sess = tf.InteractiveSession()
@@ -127,7 +130,7 @@ class Player():
 		return action
 
 
-	def run(self, state, action, reward, terminal, observation):
+	def run(self, state, action, advise, reward, terminal, observation):
 		# 次の状態を作成
 		next_state = np.append(state[1:, :, :], observation, axis=0)
 		#print(next_state)
@@ -192,6 +195,31 @@ class Player():
 
 		self.t += 1 # タイムステップ
 
+
+		advised_action = self.action.eval(feed_dict={self.la: advise}, session=self.sess)
+		self.advised_action = advised_action
+		rand = (1 - (-1)) * np.random.rand(advised_action.size).reshape(advised_action.shape) + (-1)
+		teacher_signal = advised_action + rand
+		teacher_signal[teacher_signal >= 1] = 0.9999999
+		teacher_signal[teacher_signal < 0] = 0
+		
+		self.action_memory = np.append(self.action_memory, teacher_signal)
+		self.advise_memory = np.append(self.advise_memory, advise)
+
+		if terminal == True:
+			self.total_reward += reward
+		else:
+			if self.total_reward < self.average_total_reward:
+				# オンライン学習
+				#self.language_network.fit(np.array(action), teacher_signal, verbose=1)
+				# バッチ学習
+				self.train_language_network()
+			self.average_total_reward = (self.average_total_reward * (self.episode - 1) + self.total_reward) / self.episode
+			self.total_reward = 0
+			self.episode += 1
+			self.advise_memory = np.array([[]])
+			self.action_memory = np.array([[]])
+
 		return next_state
 
 
@@ -249,12 +277,14 @@ class Player():
 
 	def build_language_network(self):
 		model = Sequential()
-		model.add(Dense(units=self.num_actions, activation='softmax', input_dim=1))
+		#model.add(Dense(units=5, activation='sigmoid', input_dim=1, init='normal'))
+		model.add(Dense(units=self.num_actions, activation='softmax', kernel_initializer='normal'))
 		#model.add(Dense(units=1, activation='softmax'))
 		#a = tf.placeholder(tf.float32, shape=(self.num_actions, 1), name='advise')
 		a = tf.placeholder(tf.float32, shape=(None, 1), name='advise')
 		action = model(a)
-		#print(model.trainable_weights)
+
+		model.compile(loss='mean_squared_error',  optimizer=SGD(lr=0.1), metrics=['accuracy'])
 
 		return a, action, model
 
@@ -265,4 +295,8 @@ class Player():
 		return action
 
 
-
+	def train_language_network(self):
+		K.set_session(self.sess)
+		#print("advised_action after = {}".format(np.argmax(self.advised_action)))
+		self.language_network.fit(np.reshape(np.array(self.advise_memory), (-1, 1)), np.reshape(self.action_memory, (-1, self.num_actions)), epochs=1, verbose=1)
+    	#print("advised_action before = {}".format(np.argmax(self.advised_action)))
