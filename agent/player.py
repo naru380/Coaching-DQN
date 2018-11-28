@@ -9,9 +9,9 @@ class Player():
 		self.epsilon_step = (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORATION_STEPS # εの減少率
 		self.t = 0 # タイムステップ
 		self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
-		self.average_total_reward = 0
-		self.advise_memory = np.array([[]])
-		self.action_memory = np.array([[]])
+		#self.average_total_reward = 0
+		#self.advise_memory = np.array([[]])
+		#self.action_memory = np.array([[]])
 		
 		# Replay Memoryの構築
 		self.replay_memory = deque()
@@ -30,12 +30,12 @@ class Player():
 			with tf.variable_scope("Player"):
 				with tf.variable_scope("Q_Network"):
 					# Q Networkの構築
-					self.s, self.q_values, q_network = self.build_network()
+					self.s, self.ad, self.q_values, q_network = self.build_network()
 					q_network_weights = q_network.trainable_weights
 
 				with tf.variable_scope("Target_Network"):
 					# Target Networkの構築
-					self.st, self.target_q_values, target_network = self.build_network()
+					self.st, self.adt, self.target_q_values, target_network = self.build_network()
 					target_network_weights = target_network.trainable_weights
 
 				# 定期的にTarget Networkを更新するための処理の構築
@@ -44,9 +44,11 @@ class Player():
 				# 誤差関数や最適化のための処理の構築
 				self.a, self.y, self.loss, self.grad_update = self.build_training_op(q_network_weights)
 
+				"""
 				# Language Networkの構築
 				with tf.variable_scope("Langage_Network"):
 					self.la, self.action, self.language_network = self.build_language_network()
+				"""
 
 			# Sessionの構築
 			#self.sess = tf.InteractiveSession()
@@ -66,9 +68,33 @@ class Player():
 			# Target Networkの初期化
 			self.sess.run(self.update_target_network)
 
+		# debug
+		summary_writer = tf.summary.FileWriter('data', graph=self.sess.graph)
+
 
 	def build_network(self):
 		# ~/.keras/keras.jsonのimage_data_formatを'channel_last'から'channel_first'に変更
+		
+		display_input = Input(shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT), dtype=tf.float32)
+		advice_input = Input(shape=(1, ))
+
+		x = Conv2D(32, (8, 8), strides=(4, 4), activation='relu')(display_input)
+		x = Conv2D(64, (4, 4), strides=(2, 2), activation='relu')(x)
+		x = Conv2D(64, (3, 3), strides=(1, 1), activation='relu')(x)
+		x = Flatten()(x)
+
+		merged = concatenate([x, advice_input])
+
+		y = Dense(512, activation='relu')(merged)
+		y = Dense(self.num_actions)(y)
+
+		model = Model(inputs=[display_input, advice_input], outputs=y)
+
+		s = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT])
+		ad = tf.placeholder(tf.float32, (None, 1))
+		q_values = model(inputs=[s, ad])
+
+		"""
 		model = Sequential()
 		model.add(Conv2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT)))
 		model.add(Conv2D(64, (4, 4), strides=(2, 2), activation='relu'))
@@ -79,8 +105,9 @@ class Player():
 
 		s = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT])
 		q_values = model(s)
+		"""
 
-		return s, q_values, model
+		return s, ad, q_values, model
 
 
 	def build_training_op(self, q_network_weights):
@@ -113,14 +140,14 @@ class Player():
 		return np.stack(state, axis=0) # 複製した状態を連結して返す
 
 
-	def get_action(self, state):
+	def get_action(self, state, advice):
 		action = self.repeated_action # 行動をリピート
 
 		if self.t % ACTION_INTERVAL == 0:
 			if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
 				action = random.randrange(self.num_actions) # ランダムに行動を選択
 			else:
-				action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))
+				action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)], self.ad:advice}, session=self.sess))
 			self.repeated_action = action # フレームスキップ間にリピートする行動を格納
 
 		# εを線形に減少させる
@@ -130,7 +157,7 @@ class Player():
 		return action
 
 
-	def run(self, state, action, advise, reward, terminal, observation):
+	def run(self, state, action, advice, reward, terminal, observation):
 		# 次の状態を作成
 		next_state = np.append(state[1:, :, :], observation, axis=0)
 		#print(next_state)
@@ -139,7 +166,7 @@ class Player():
 		reward = np.sign(reward)
 
 		# Replay Memoryに遷移を保存
-		self.replay_memory.append((state, action, reward, next_state, terminal))
+		self.replay_memory.append((state, action, [float(advice)], reward, next_state, terminal))
 		
 		# Replay Memoryが一定数を超えたら、古い遷移から削除
 		if len(self.replay_memory) > NUM_REPLAY_MEMORY:
@@ -160,7 +187,7 @@ class Player():
 				print('Successfully saved: ' + save_path)
 
 		self.total_reward += reward
-		self.total_q_max += np.max(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))
+		self.total_q_max += np.max(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)], self.ad: advice}, session=self.sess))
 		self.duration += 1
 
 		if terminal:
@@ -195,7 +222,7 @@ class Player():
 
 		self.t += 1 # タイムステップ
 
-
+		"""
 		advised_action = self.action.eval(feed_dict={self.la: advise}, session=self.sess)
 		self.advised_action = advised_action
 		rand = (1 - (-1)) * np.random.rand(advised_action.size).reshape(advised_action.shape) + (-1)
@@ -209,7 +236,7 @@ class Player():
 		if terminal == True:
 			self.total_reward += reward
 		else:
-			if self.total_reward < self.average_total_reward:
+			if self.total_reward <= self.average_total_reward:
 				# オンライン学習
 				#self.language_network.fit(np.array(action), teacher_signal, verbose=1)
 				# バッチ学習
@@ -219,6 +246,7 @@ class Player():
 			self.episode += 1
 			self.advise_memory = np.array([[]])
 			self.action_memory = np.array([[]])
+		"""
 
 		return next_state
 
@@ -226,6 +254,7 @@ class Player():
 	def train_network(self):
 		state_batch = []
 		action_batch = []
+		advice_batch = []
 		reward_batch = []
 		next_state_batch = []
 		terminal_batch = []
@@ -236,20 +265,22 @@ class Player():
 		for data in minibatch:
 			state_batch.append(data[0])
 			action_batch.append(data[1])
-			reward_batch.append(data[2])
-			next_state_batch.append(data[3])
-			terminal_batch.append(data[4])
+			advice_batch.append(data[2])
+			reward_batch.append(data[3])
+			next_state_batch.append(data[4])
+			terminal_batch.append(data[5])
 
 		# 終了判定をTrueは1に、Falseは0に変換
 		terminal_batch = np.array(terminal_batch) + 0
 		# Target Networkで次の状態でのQ値を計算
-		target_q_values_batch = self.target_q_values.eval(feed_dict={self.st: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess) 
+		target_q_values_batch = self.target_q_values.eval(feed_dict={self.st: np.float32(np.array(next_state_batch) / 255.0), self.adt: np.float32(np.array(advice_batch))}, session=self.sess) 
 		# 教師信号を計算
 		y_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(target_q_values_batch, axis=1)
 
 		# 勾配法による誤差最小化
 		loss, _ = self.sess.run([self.loss, self.grad_update], feed_dict={
 			self.s: np.float32(np.array(state_batch) / 255.0),
+			self.ad: np.float32(np.array(advice_batch)),
 			self.a: action_batch,
 			self.y: y_batch
 		})
@@ -275,6 +306,7 @@ class Player():
 		return summary_placeholders, update_ops, summary_op
 
 
+	"""
 	def build_language_network(self):
 		model = Sequential()
 		#model.add(Dense(units=5, activation='sigmoid', input_dim=1, init='normal'))
@@ -287,16 +319,20 @@ class Player():
 		model.compile(loss='mean_squared_error',  optimizer=SGD(lr=0.1), metrics=['accuracy'])
 
 		return a, action, model
+	"""
 
-
+	"""
 	def get_action_from_advise(self, advice):
 		action = self.action.eval(feed_dict={self.la: advice}, session=self.sess)
 
 		return action
+	"""
 
-
+	"""
 	def train_language_network(self):
 		K.set_session(self.sess)
 		#print("advised_action after = {}".format(np.argmax(self.advised_action)))
 		self.language_network.fit(np.reshape(np.array(self.advise_memory), (-1, 1)), np.reshape(self.action_memory, (-1, self.num_actions)), epochs=1, verbose=1)
     	#print("advised_action before = {}".format(np.argmax(self.advised_action)))
+		print("weights after lerning is \n{}".format(self.language_network.get_weights()))
+	"""

@@ -92,7 +92,7 @@ class Adviser():
 	
 	def build_language_network(self):
 		model = Sequential()
-		model.add(Dense(units=1, activation=None, use_bias=False, input_dim=self.num_actions, kernel_initializer='normal'))
+		model.add(Dense(units=1, activation='sigmoid', use_bias=False, input_dim=self.num_actions, kernel_initializer='normal'))
 		#model.add(Dense(units=1, activation='sigmoid', init='normal'))
 		#model.add(Dense(units=1, activation='sigmoid', input_dim=4))
 		a = tf.placeholder(tf.float32, shape=(1, self.num_actions), name='action')
@@ -114,7 +114,7 @@ class Adviser():
 
 		return advise
 
-
+	"""
 	def run(self, action, advise, reward, terminal):
 		rand = random.uniform(-1, 1)
 
@@ -163,3 +163,4 @@ class Adviser():
 		#print(self.get_advise_from_action([[0,0,1,0]]))
 		#print(self.get_advise_from_action([[0,0,0,1]]))
 		#print(self.debug_LN.evaluate_gradients(self.sess, [[1,1,1,1]]))
+	"""

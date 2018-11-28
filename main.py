@@ -107,7 +107,6 @@ def main():
 
 			while not terminal:
 				last_observation = observation
-
 				# アドバイザの処理
 				with adviser.graph.as_default():
 					# ゲーム画面から操作を決定する
@@ -122,25 +121,46 @@ def main():
 				# プレイヤの処理
 				with player.graph.as_default():
 					# アドバイス(言語)を操作に変換する
-					advised_action = player.get_action_from_advise(advise)
+					#advised_action = player.get_action_from_advise(advise)
 					#print("advised_action = {}".format(np.argmax(advised_action)))
 					# ゲーム画面から操作を決定する
-					player_action = player.get_action(state)
+					player_action = player.get_action(state, advise)
+					#print(player_action)
 
 				# 環境に対するプレイヤの行動を決定し，次のステップ(画面)へ移行する
-				observation, reward, terminal, _ = env.step(adviser_action)
+				observation, reward, terminal, _ = env.step(player_action)
 				env.render() # 画面出力
 				processed_observation = preprocess(observation, last_observation)
 
+				"""
 				# アドバイザの処理
 				with adviser.graph.as_default():
 					# 内部状態を更新する
 					adviser.run(onehot_adviser_action, advise, reward, terminal)
+				"""
 
 				# プレイヤの処理
 				with player.graph.as_default():
 					# 内部状態を更新する
 					state = player.run(state, player_action, advise, reward, terminal, processed_observation)
+
+			"""
+			action1 = 0
+			action2 = 1
+			action3 = 2
+			action4 = 3
+			advise1 =  adviser.get_advise_from_action([np.identity(env.action_space.n)[0]])
+			advise2 =  adviser.get_advise_from_action([np.identity(env.action_space.n)[1]])
+			advise3 =  adviser.get_advise_from_action([np.identity(env.action_space.n)[2]])
+			advise4 =  adviser.get_advise_from_action([np.identity(env.action_space.n)[3]])
+			advised_action1 = np.argmax(player.get_action_from_advise(advise1))
+			advised_action2 = np.argmax(player.get_action_from_advise(advise2))
+			advised_action3 = np.argmax(player.get_action_from_advise(advise3))
+			advised_action4 = np.argmax(player.get_action_from_advise(advise4))
+
+			print("adviser: [{}, {}, {}, {}]".format(action1, action2, action3, action4))
+			print("player : [{}, {}, {}, {}]".format(advised_action1, advised_action2, advised_action3, advised_action4))
+			"""
 	else:
 		print("Invalid MODE is selected.")
 
