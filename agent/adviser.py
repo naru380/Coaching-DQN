@@ -6,12 +6,16 @@ class Adviser():
 	def __init__(self, num_actions):
 		self.num_actions = num_actions # 行動数
 		self.t = 0 # タイムステップ
-		self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
+		# self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
+		self.repeated_advice = 0 # フレームスキップ間にリピートするアドバイスを保持するための変数
+
+		"""
 		self.total_reward = 0
 		self.average_total_reward = 0
 		self.episode = 1
 		self.advise_memory = np.array([[]])
 		self.action_memory = np.array([[]])
+		"""
 
 		# クラス専用のグラフを構築する
 		self.graph = tf.Graph()
@@ -24,6 +28,7 @@ class Adviser():
 					q_network_weights = q_network.trainable_weights
 					#print(q_network_weights)
 
+				"""
 				# Language Networkの構築
 				with tf.variable_scope("Langage_Network"):
 					self.la, self.advise, self.language_network = self.build_language_network()
@@ -31,6 +36,7 @@ class Adviser():
 					
 				# Language Networkの誤差関数や最適化のための処理の構築
 				#self.ln_a, self.ln_y, self.ln_loss, self.ln_grad_update = self.build_training_op(language_network_weights)
+				"""
 
 			# Sessionの構築
 			self.sess = tf.Session(graph=self.graph)
@@ -74,6 +80,7 @@ class Adviser():
 			print('Training new network...')
 
 
+	"""
 	def get_action(self, state):
 		action = self.repeated_action
 
@@ -82,14 +89,31 @@ class Adviser():
 				action = random.randrange(self.num_actions)
 			else:
 				action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))
-
 			self.repeated_action = action
 
 		self.t += 1
 
 		return action
+	"""
+
+
+	def get_advice(self, state):
+		advice = self.repeated_advice
+		
+		if self.t % ACTION_INTERVAL == 0:
+			if random.random() <= 0.25:
+				advice = 0
+			else:
+				advice = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess)) + 1
+			self.repeated_advice = advice
+
+		self.t += 1
+		
+		# 言語としてone_hot_vectorを返す
+		return np.identity(self.num_actions+1)[advice]
 
 	
+	"""
 	def build_language_network(self):
 		model = Sequential()
 		model.add(Dense(units=1, activation='sigmoid', use_bias=False, input_dim=self.num_actions, kernel_initializer='normal'))
@@ -113,6 +137,8 @@ class Adviser():
 		advise = self.advise.eval(feed_dict={self.la: np.array(action)}, session=self.sess)
 
 		return advise
+	"""
+
 
 	"""
 	def run(self, action, advise, reward, terminal):

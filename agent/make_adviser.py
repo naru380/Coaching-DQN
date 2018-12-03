@@ -270,12 +270,13 @@ class Agent():
 
 		return action
 
-
+"""
 def preprocess(observation, last_observation):
 	processed_observation = np.maximum(observation, last_observation)
 	processed_observation = np.uint8(resize(rgb2gray(processed_observation), (FRAME_WIDTH, FRAME_HEIGHT)) * 255, mode='constant')
 
 	return np.reshape(processed_observation, (1, FRAME_WIDTH, FRAME_HEIGHT)) # 形状を合わせて状態を返す
+
 
 
 def main():
@@ -322,3 +323,4 @@ def main():
 
 if __name__ == '__main__':
 	main()
+"""

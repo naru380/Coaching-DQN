@@ -4,6 +4,7 @@ import gym
 import random
 import numpy as np
 
+from gym import wrappers
 from enum import Enum
 
 from agent.common import *
@@ -62,8 +63,10 @@ def main():
 	elif MODE == Mode.MAKE_ADVISER_TEST:
 		print("MODE is MALE_ADVISER_TRAIN")
 
+		env = wrappers.Monitor(env, directory='test', force=True)
+
 		# Agentクラスのインスタンスを作る
-		agent = Agent(num_actions=env.action_space.n, load_model=False)
+		agent = Agent(num_actions=env.action_space.n, load_model=True)
 
 		# env.monitor.start(ENV_NAME + '-test')
 		for _ in range(NUM_EPISODES_AT_TEST):
@@ -72,6 +75,7 @@ def main():
 			for _ in range(random.randint(1, NO_OP_STEPS)):
 				last_observation = observation
 				observation, _, _, _ = env.step(0)
+				state = agent.get_initial_state(observation, last_observation)
 			while not terminal:
 				last_observation = observation
 				action = agent.get_action_at_test(state)
@@ -110,25 +114,33 @@ def main():
 				# アドバイザの処理
 				with adviser.graph.as_default():
 					# ゲーム画面から操作を決定する
-					adviser_action = adviser.get_action(state)
+					#adviser_action = adviser.get_action(state)
+					advice = list(adviser.get_advice(state))
 					#print(adviser_action)
 					# 操作をアドバイス(言語)に変換する
-					onehot_adviser_action = [np.identity(env.action_space.n)[adviser_action]]
-					advise = adviser.get_advise_from_action(onehot_adviser_action)
+					#onehot_adviser_action = [np.identity(env.action_space.n)[adviser_action]]
+					#advise = adviser.get_advise_from_action(onehot_adviser_action)
+					#one_hot_advice = [np.identity(env.action_space.n + 1)[advice]]
+					#print("one_hot_advice = {}".format(one_hot_advice))
+
+					#print("adviser:{}".format(np.argmax(advice)))
+
 					#print("one_hot_action = \n{}".format(np.identity(env.action_space.n)[adviser_action]))
 					#print("advise = {}".format(advise))
 
 				# プレイヤの処理
 				with player.graph.as_default():
 					# アドバイス(言語)を操作に変換する
-					#advised_action = player.get_action_from_advise(advise)
+#					# 操作を決定する
+					mean = player.get_mean(advice)
+					action = player.get_action(state, mean)
 					#print("advised_action = {}".format(np.argmax(advised_action)))
 					# ゲーム画面から操作を決定する
-					player_action = player.get_action(state, advise)
+					#player_action = player.get_action(state, advise)
 					#print(player_action)
 
 				# 環境に対するプレイヤの行動を決定し，次のステップ(画面)へ移行する
-				observation, reward, terminal, _ = env.step(player_action)
+				observation, reward, terminal, _ = env.step(action)
 				env.render() # 画面出力
 				processed_observation = preprocess(observation, last_observation)
 
@@ -142,25 +154,36 @@ def main():
 				# プレイヤの処理
 				with player.graph.as_default():
 					# 内部状態を更新する
-					state = player.run(state, player_action, advise, reward, terminal, processed_observation)
+					state = player.run(state, action, advice, mean, reward, terminal, processed_observation)
 
+			intention0 = 0
+			intention1 = 1
+			intention2 = 2
+			intention3 = 3
+			intention4 = 4
 			"""
-			action1 = 0
-			action2 = 1
-			action3 = 2
-			action4 = 3
-			advise1 =  adviser.get_advise_from_action([np.identity(env.action_space.n)[0]])
-			advise2 =  adviser.get_advise_from_action([np.identity(env.action_space.n)[1]])
-			advise3 =  adviser.get_advise_from_action([np.identity(env.action_space.n)[2]])
-			advise4 =  adviser.get_advise_from_action([np.identity(env.action_space.n)[3]])
-			advised_action1 = np.argmax(player.get_action_from_advise(advise1))
+			advise1 =  adviser.get_advice([np.identity(env.action_space.n+1)[0]])
+			advise2 =  adviser.get_advice([np.identity(env.action_space.n+1)[1]])
+			advise3 =  adviser.get_advice([np.identity(env.action_space.n+1)[2]])
+			advise4 =  adviser.get_advisce([np.identity(env.action_space.n)[3]])
+			mean0 = np.argmax(player.get_action_from_advise(advise1))
 			advised_action2 = np.argmax(player.get_action_from_advise(advise2))
 			advised_action3 = np.argmax(player.get_action_from_advise(advise3))
 			advised_action4 = np.argmax(player.get_action_from_advise(advise4))
-
-			print("adviser: [{}, {}, {}, {}]".format(action1, action2, action3, action4))
-			print("player : [{}, {}, {}, {}]".format(advised_action1, advised_action2, advised_action3, advised_action4))
 			"""
+			advice0 = np.identity(env.action_space.n+1)[intention0]
+			advice1 = np.identity(env.action_space.n+1)[intention1]
+			advice2 = np.identity(env.action_space.n+1)[intention2]
+			advice3 = np.identity(env.action_space.n+1)[intention3]
+			advice4 = np.identity(env.action_space.n+1)[intention4]
+			mean0 = player.get_mean(advice0)
+			mean1 = player.get_mean(advice1)
+			mean2 = player.get_mean(advice2)
+			mean3 = player.get_mean(advice3)
+			mean4 = player.get_mean(advice4)
+
+			print("adviser: [{}, {}, {}, {}, {}]".format(intention0, intention1, intention2, intention3, intention4))
+			print("player : [{}, {}, {}, {}, {}]".format(mean0, mean1, mean2, mean3, mean4))
 	else:
 		print("Invalid MODE is selected.")
 

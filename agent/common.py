@@ -43,8 +43,8 @@ SAVE_NETWORK_PATH = 'log/saved_networks/' + ENV_NAME # タスク実行時のQ_Ne
 SAVE_SUMMARY_PATH = 'log/summary/' + ENV_NAME # タスク実行時の学習データを保存する場所
 NUM_EPISODES_AT_TEST = 30  # テストプレイで実行するエピソード数
 
-#INITIAL_REPLAY_SIZE = 50 # 学習前に事前確保するReplay Memory数
-#TARGET_UPDATE_INTERVAL = 100 # Target Networkの更新をする間隔
+INITIAL_REPLAY_SIZE = 50 # 学習前に事前確保するReplay Memory数
+TARGET_UPDATE_INTERVAL = 100 # Target Networkの更新をする間隔
 
 
 def preprocess(observation, last_observation):
