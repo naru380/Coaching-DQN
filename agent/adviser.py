@@ -97,20 +97,33 @@ class Adviser():
 	"""
 
 
-	def get_advice(self, state):
+	def _get_advice(self, state):
 		advice = self.repeated_advice
 		
 		if self.t % ACTION_INTERVAL == 0:
 			if random.random() <= 0.25:
-				advice = 0
+				advice = AnotherMean.NOOP.value
 			else:
-				advice = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess)) + 1
+				advice = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess)) + NUM_ANOTHER_MEAN
 			self.repeated_advice = advice
 
 		self.t += 1
 		
 		# 言語としてone_hot_vectorを返す
-		return np.identity(self.num_actions+1)[advice]
+		return np.identity(self.num_actions+NUM_ANOTHER_MEAN)[advice]
+
+
+	def get_advice(self, state):
+		advice = self.repeated_advice
+		
+		if self.t % ACTION_INTERVAL == 0:
+			advice = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))
+			self.repeated_advice = advice
+
+		self.t += 1
+		
+		# 言語としてone_hot_vectorを返す
+		return np.identity(self.num_actions)[advice]
 
 	
 	"""

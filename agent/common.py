@@ -13,6 +13,7 @@ from keras.layers import Input, Conv2D, Flatten, Dense
 from keras.layers import concatenate
 from keras.optimizers import SGD, Adam
 from keras import backend as K
+from enum import Enum
 
 KERAS_BACKEND = 'tensorflow'
 
@@ -43,8 +44,15 @@ SAVE_NETWORK_PATH = 'log/saved_networks/' + ENV_NAME # タスク実行時のQ_Ne
 SAVE_SUMMARY_PATH = 'log/summary/' + ENV_NAME # タスク実行時の学習データを保存する場所
 NUM_EPISODES_AT_TEST = 30  # テストプレイで実行するエピソード数
 
-INITIAL_REPLAY_SIZE = 50 # 学習前に事前確保するReplay Memory数
-TARGET_UPDATE_INTERVAL = 100 # Target Networkの更新をする間隔
+#INITIAL_REPLAY_SIZE = 50 # 学習前に事前確保するReplay Memory数
+#TARGET_UPDATE_INTERVAL = 100 # Target Networkの更新をする間隔
+
+class AnotherMean(Enum):
+	NOOP = 0 # 何もしない
+
+NUM_ANOTHER_MEAN = len(list(AnotherMean))
+NUM_ANOTHER_MEAN =  0
+
 
 
 def preprocess(observation, last_observation):

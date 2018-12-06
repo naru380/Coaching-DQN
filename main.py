@@ -116,7 +116,7 @@ def main():
 					# ゲーム画面から操作を決定する
 					#adviser_action = adviser.get_action(state)
 					advice = list(adviser.get_advice(state))
-					#print(adviser_action)
+					#print("advice = {}", advice)
 					# 操作をアドバイス(言語)に変換する
 					#onehot_adviser_action = [np.identity(env.action_space.n)[adviser_action]]
 					#advise = adviser.get_advise_from_action(onehot_adviser_action)
@@ -160,7 +160,7 @@ def main():
 			intention1 = 1
 			intention2 = 2
 			intention3 = 3
-			intention4 = 4
+			#intention4 = 4
 			"""
 			advise1 =  adviser.get_advice([np.identity(env.action_space.n+1)[0]])
 			advise2 =  adviser.get_advice([np.identity(env.action_space.n+1)[1]])
@@ -171,19 +171,22 @@ def main():
 			advised_action3 = np.argmax(player.get_action_from_advise(advise3))
 			advised_action4 = np.argmax(player.get_action_from_advise(advise4))
 			"""
-			advice0 = np.identity(env.action_space.n+1)[intention0]
-			advice1 = np.identity(env.action_space.n+1)[intention1]
-			advice2 = np.identity(env.action_space.n+1)[intention2]
-			advice3 = np.identity(env.action_space.n+1)[intention3]
-			advice4 = np.identity(env.action_space.n+1)[intention4]
-			mean0 = player.get_mean(advice0)
-			mean1 = player.get_mean(advice1)
-			mean2 = player.get_mean(advice2)
-			mean3 = player.get_mean(advice3)
-			mean4 = player.get_mean(advice4)
+			advice0 = np.identity(env.action_space.n+NUM_ANOTHER_MEAN)[intention0]
+			advice1 = np.identity(env.action_space.n+NUM_ANOTHER_MEAN)[intention1]
+			advice2 = np.identity(env.action_space.n+NUM_ANOTHER_MEAN)[intention2]
+			advice3 = np.identity(env.action_space.n+NUM_ANOTHER_MEAN)[intention3]
+			
+			#advice4 = np.identity(env.action_space.n+1)[intention4]
+			mean0 = player.debug_mean(advice0)
+			mean1 = player.debug_mean(advice1)
+			mean2 = player.debug_mean(advice2)
+			mean3 = player.debug_mean(advice3)
+			#mean4 = player.get_mean(advice4)
 
-			print("adviser: [{}, {}, {}, {}, {}]".format(intention0, intention1, intention2, intention3, intention4))
-			print("player : [{}, {}, {}, {}, {}]".format(mean0, mean1, mean2, mean3, mean4))
+			#print("adviser: [{}, {}, {}, {}, {}]".format(intention0, intention1, intention2, intention3, intention4))
+			#print("player : [{}, {}, {}, {}, {}]".format(mean0, mean1, mean2, mean3, mean4))
+			print("adviser: [{}, {}, {}, {}]".format(intention0, intention1, intention2, intention3))
+			print("player : [{}, {}, {}, {}]".format(mean0, mean1, mean2, mean3))
 	else:
 		print("Invalid MODE is selected.")
 

@@ -52,8 +52,8 @@ class Player():
 				with tf.variable_scope("Advice_Network"):
 					with tf.variable_scope("Q_Network"):
 						# Q Networkの構築
-						self.q_advice, self.advice_q_values, advice_q_network = self.build_advice_network()
-						advice_q_network_weights = advice_q_network.trainable_weights
+						self.q_advice, self.advice_q_values, self.advice_q_network = self.build_advice_network()
+						advice_q_network_weights = self.advice_q_network.trainable_weights
 
 					with tf.variable_scope("Target_Network"):
 						# Target Networkの構築
@@ -176,15 +176,20 @@ class Player():
 	
 	def build_advice_network(self):
 		#advice_input = Input(shape=(1, self.num_actions+1))
-		advice_input = Input(shape=(self.num_actions+1, ))
+		advice_input = Input(shape=(self.num_actions+NUM_ANOTHER_MEAN, ))
 
-		x = Dense(8, activation='relu', kernel_initializer='normal')(advice_input)
-		#x = Dense(8, activation='relu', kernel_initializer='normal')(x)
-		x = Dense(self.num_actions+1, kernel_initializer='normal')(x)
+		#x = Dense(2, activation='sigmoid', kernel_initializer='uniform')(advice_input)
+		#x = Dense(self.num_actions+NUM_ANOTHER_MEAN, activation='sigmoid', kernel_initializer='uniform')(x)
+		x = Dense(self.num_actions+NUM_ANOTHER_MEAN, activation='sigmoid', kernel_initializer='uniform')(advice_input)
+		#x = Dense((self.num_actions+NUM_ANOTHER_MEAN)*4, activation='relu', kernel_initializer='uniform')(x)
+		#x = Dense((self.num_actions+NUM_ANOTHER_MEAN)*2, activation='relu', kernel_initializer='uniform')(x)
+		#x = Dense(self.num_actions+NUM_ANOTHER_MEAN, kernel_initializer='uniform')(x)
 		model = Model(inputs=[advice_input], outputs=x)
 
-		advice = tf.placeholder(tf.float32, [None, self.num_actions+1])
+		advice = tf.placeholder(tf.float32, [None, self.num_actions+NUM_ANOTHER_MEAN])
 		q_values = model(inputs=[advice])
+
+		self.debug = Debug(model)
 
 		return advice, q_values, model
 
@@ -195,7 +200,7 @@ class Player():
 		teacher_signal = tf.placeholder(tf.float32, [None], name='Teacher_Signal') # 教師信号
 
 		with tf.variable_scope('1-Hot_Vecor_Generator'):
-			mean_one_hot = tf.one_hot(mean, self.num_actions+1, 1.0, 0.0) #意味をone hot vectorに変換する
+			mean_one_hot = tf.one_hot(mean, self.num_actions+NUM_ANOTHER_MEAN, 1.0, 0.0) #意味をone hot vectorに変換する
 		with tf.variable_scope('Q_Value_Calculator'):
 			q_value = tf.reduce_sum(tf.multiply(self.advice_q_values, mean_one_hot), reduction_indices=1) # 行動のQ値を計算
 			#q_value = tf.reduce_sum(tf.multiply(self.advice_q_values, advice), reduction_indices=1) # 行動のQ値を計算
@@ -208,7 +213,8 @@ class Player():
 			loss = tf.reduce_mean(0.5 * tf.square(quadratic_part) + linear_part) # 誤差関数
 
 		with tf.variable_scope('Optimizer'):
-			optimizer = tf.train.RMSPropOptimizer(LEARNING_RATE, momentum=MOMENTUM, epsilon=MIN_GRAD) # 最適化手法を定義
+			optimizer = tf.train.RMSPropOptimizer(0.005, momentum=MOMENTUM, epsilon=MIN_GRAD) # 最適化手法を定義
+			#optimizer = tf.train.RMSPropOptimizer(LEARNING_RATE, momentum=MOMENTUM, epsilon=MIN_GRAD) # 最適化手法を定義
 			grad_update = optimizer.minimize(loss, var_list=q_network_weights) # 誤差最小化
 
 		return mean, teacher_signal, loss, grad_update
@@ -224,30 +230,59 @@ class Player():
 	def get_mean(self, advice):
 		mean = self.repeated_mean # 意味をリピート
 
+		K.set_session(self.sess)
+
 		if self.t % ACTION_INTERVAL == 0:
-			mean = np.argmax(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
+			if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
+				mean = random.randrange(self.num_actions+NUM_ANOTHER_MEAN)
+			else:
+				mean = np.argmax(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
+			#print(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
+			#print("advice={}\nmean={}".format(advice, self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess)))
 			self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
+
+		return mean
+
+
+	def debug_mean(self, advice):
+		K.set_session(self.sess)
+		mean = np.argmax(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
 
 		return mean
 		
 
-	def get_action(self, state, mean):
+	"""
+	def _get_action(self, state, mean):
 		action = self.repeated_action # 行動をリピート
 		#_advice = np.argmax(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
 		#print("player:{}".format(_advice))
 
 		if self.t % ACTION_INTERVAL == 0:
-			if mean == 0: # アドバイスが操作を示していない場合
+			#if mean == 0 or random.random() <= 0.25: # アドバイスが操作を示していない場合
+			if mean == AnotherMean.NOOP.value or self.epsilon >= random.random(): # アドバイスが操作を示していない場合
+			#if mean == 0: # アドバイスが操作を示していない場合
 				if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
 					action = random.randrange(self.num_actions) # ランダムに行動を選択
-					#print("AAAAAAAAAA")
-					#print(action)
 				else:
-					#print("RRRRRRRRRR")
 					action = np.argmax(self.q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
 				self.repeated_action = action # フレームスキップ間にリピートする行動を格納
+				
 			else: # アドバイスが操作を示している場合
-				action = mean-1
+				action = mean-NUM_ANOTHER_MEAN
+
+		# εを線形に減少させる
+		if self.epsilon > FINAL_EPSILON and self.t >= INITIAL_REPLAY_SIZE:
+			self.epsilon -= self.epsilon_step
+
+		return action
+	"""
+
+
+	def get_action(self, state, mean):
+		action = self.repeated_action # 行動をリピート
+
+		if self.t % ACTION_INTERVAL == 0:
+			action = mean
 
 		# εを線形に減少させる
 		if self.epsilon > FINAL_EPSILON and self.t >= INITIAL_REPLAY_SIZE:
@@ -320,6 +355,30 @@ class Player():
 			self.duration = 0
 			self.episode += 1
 
+			K.set_session(self.sess)
+			print("trainable_weights={}".format(self.advice_q_network.trainable_weights))
+			print("weights={}".format(self.advice_q_network.get_weights()))
+			#for layer in self.advice_q_network.layers:
+			#	 print( layer.get_weights() )
+			input1 = [[1,0,0,0]]
+			input2 = [[0,1,0,0]]
+			input3 = [[0,0,1,0]]
+			input4 = [[0,0,0,1]]
+			output1 = self.advice_q_values.eval(feed_dict={self.q_advice: input1}, session=self.sess)
+			output2 = self.advice_q_values.eval(feed_dict={self.q_advice: input2}, session=self.sess)
+			output3 = self.advice_q_values.eval(feed_dict={self.q_advice: input3}, session=self.sess)
+			output4 = self.advice_q_values.eval(feed_dict={self.q_advice: input4}, session=self.sess)
+			print("inputs1={}, output1={}".format(input1, output1))
+			print("inputs2={}, output2={}".format(input2, output2))
+			print("inputs3={}, output3={}".format(input3, output3))
+			print("inputs4={}, output4={}".format(input4, output4))
+
+		#print(self.debug.evaluate_gradients(self.sess, [[1,1,1,1]]))
+		#print(self.debug.evaluate_gradients(self.sess, [[0,1,0,0]]))
+		#print(self.debug.evaluate_gradients(self.sess, [[0,0,1,0]]))
+		#print(self.debug.evaluate_gradients(self.sess, [[0,0,0,1]]))
+
+
 		self.t += 1 # タイムステップ
 		#print(self.t)
 
@@ -374,6 +433,8 @@ class Player():
 			next_state_batch.append(data[5])
 			terminal_batch.append(data[6])
 
+		K.set_session(self.sess)
+
 		# 終了判定をTrueは1に、Falseは0に変換
 		terminal_batch = np.array(terminal_batch) + 0
 		# Target Networkで次の状態でのQ値を計算
@@ -399,8 +460,12 @@ class Player():
 		self.total_loss += loss
 		self.total_advice_net_loss += advice_net_loss
 
+		#print("advice_batch = {}".format(advice_batch))
+
 
 	def setup_summary(self):
+		K.set_session(self.sess)
+
 		with tf.variable_scope('Summary'):
 			episode_total_reward = tf.Variable(0., name='Total_Reward')
 			tf.summary.scalar(ENV_NAME + '/Total Reward/Episode', episode_total_reward)
