@@ -48,7 +48,7 @@ NUM_EPISODES_AT_TEST = 30  # テストプレイで実行するエピソード数
 #TARGET_UPDATE_INTERVAL = 100 # Target Networkの更新をする間隔
 
 class AnotherMean(Enum):
-	NOOP = 0 # 何もしない
+    NOOP = 0 # 何もしない
 
 NUM_ANOTHER_MEAN = len(list(AnotherMean))
 NUM_ANOTHER_MEAN =  0
@@ -56,25 +56,25 @@ NUM_ANOTHER_MEAN =  0
 
 
 def preprocess(observation, last_observation):
-	processed_observation = np.maximum(observation, last_observation)
-	processed_observation = np.uint8(resize(rgb2gray(processed_observation), (FRAME_WIDTH, FRAME_HEIGHT)) * 255, mode='constant')
+    processed_observation = np.maximum(observation, last_observation)
+    processed_observation = np.uint8(resize(rgb2gray(processed_observation), (FRAME_WIDTH, FRAME_HEIGHT)) * 255, mode='constant')
 
-	return np.reshape(processed_observation, (1, FRAME_WIDTH, FRAME_HEIGHT)) # 形状を合わせて状態を返す
+    return np.reshape(processed_observation, (1, FRAME_WIDTH, FRAME_HEIGHT)) # 形状を合わせて状態を返す
 
 
 class Debug:
-	def __init__(self, model):
-		self.model = model
-		self.gradients = self.get_gradients()
+    def __init__(self, model):
+        self.model = model
+        self.gradients = self.get_gradients()
 
-	def get_gradients(self):
-		outputTensor = self.model.get_output_at(0)
-		listOfVariableTensors = self.model.trainable_weights
-		gradients = K.gradients(outputTensor, listOfVariableTensors)
-		
-		return gradients
+    def get_gradients(self):
+        outputTensor = self.model.get_output_at(0)
+        listOfVariableTensors = self.model.trainable_weights
+        gradients = K.gradients(outputTensor, listOfVariableTensors)
+        
+        return gradients
 
-	def evaluate_gradients(self, sess, input_data):
-		evaluated_gradients = sess.run(self.gradients, feed_dict={self.model.get_input_at(0): input_data})
+    def evaluate_gradients(self, sess, input_data):
+        evaluated_gradients = sess.run(self.gradients, feed_dict={self.model.get_input_at(0): input_data})
 
-		return evaluated_gradients
+        return evaluated_gradients
