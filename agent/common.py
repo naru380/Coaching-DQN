@@ -18,7 +18,7 @@ from enum import Enum
 KERAS_BACKEND = 'tensorflow'
 
 ENV_NAME = 'BreakoutNoFrameskip-v4' # Gymの環境名
-#ENV_NAME = 'Breakout-v0' # Gymの環境名
+ENV_NAME = 'Tetris-v0' # Gymの環境名
 FRAME_HEIGHT = 84 # リサイズ後のフレームの高さ
 FRAME_WIDTH = 84 # リサイズ後のフレーム幅
 NUM_EPISODES = 12000 # プレイするエピソード数
@@ -39,13 +39,12 @@ MIN_GRAD = 0.01 # RSMPropで使われる0で割るのを防ぐための値
 SAVE_INTERVAL = 300000  # Networkを保存する間隔
 NO_OP_STEPS = 30 # エピソード開始時に「何もしない」最大フレーム数（初期状態をランダムにする）
 TRAINED_ADVISER_NETWORK_PATH = 'trained_adviser/saved_networks/' + ENV_NAME # 学習済みのアドバイザのQ_Netowrkの重みの保存場所
-TRAINED_ADVISER_SUMMARY_PATH = 'trained_adviser/saved_networks/' + ENV_NAME # アドバイザ学習時のデータの保存場所
+TRAINED_ADVISER_SUMMARY_PATH = 'trained_adviser/summary/' + ENV_NAME # アドバイザ学習時のデータの保存場所
 SAVE_NETWORK_PATH = 'log/saved_networks/' + ENV_NAME # タスク実行時のQ_Networkの重みを保存する場所
 SAVE_SUMMARY_PATH = 'log/summary/' + ENV_NAME # タスク実行時の学習データを保存する場所
 NUM_EPISODES_AT_TEST = 30  # テストプレイで実行するエピソード数
 
-#INITIAL_REPLAY_SIZE = 50 # 学習前に事前確保するReplay Memory数
-#TARGET_UPDATE_INTERVAL = 100 # Target Networkの更新をする間隔
+
 
 class AnotherMean(Enum):
     NOOP = 0 # 何もしない
