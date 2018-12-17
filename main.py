@@ -4,16 +4,12 @@ import gym
 import gym_tetris
 import random
 import numpy as np
-import threading
-import readchar
 
 from gym import wrappers
 from enum import Enum
-from time import sleep
 
 from agent.common import *
 from agent.make_adviser import Agent
-from agent.make_adviser_on_tetris import AgentOnTetris
 from agent.adviser import Adviser
 from agent.player import Player
 
@@ -21,41 +17,13 @@ from agent.player import Player
 class Mode(Enum):
     MAKE_ADVISER_TRAIN = 1 # Atariゲームのアドバイザ作成
     MAKE_ADVISER_TEST = 2 # 作成したAtariゲームのアドバイザの確認
-    MAKE_ADVISER_TRAIN_ON_TETRIS = 3 # テトリスのアドバイザの作成
-    MAKE_ADVISER_TEST_ON_TETRIS = 4 # 作成したテトリスのアドバイザの確認
-    IMPLEMENT_MAIN_TASK = 5 # メインのタスク実行
+    IMPLEMENT_MAIN_TASK = 3 # メインのタスク実行
 
-MODE = 5
-
-
-class Key(Enum):
-    A = 'a'
-    S = 's'
-    D = 'd'
-    F = 'f'
-    G = 'g'
-    H = 'h'
-    J = 'j'
-    K = 'k'
-    L = 'l'
-    SEMICOLON = ';'
-    COLON = ':'
-    RIGHTSQUAREBRACKET = ']'
-
-
-PRESSED_KEY = ''
-RECIEVE_FLAG = False
-def keyboard_monitor():
-    global PRESSED_KEY
-    PRESSED_KEY = readchar.readchar()
-    while not RECIEVE_FLAG:
-        pass
-
+MODE = 3
 
 
 def main():
     # 環境を作る
-    gym = gym_tetris
     env = gym.make(ENV_NAME)
 
     if MODE == Mode.MAKE_ADVISER_TRAIN.value:
@@ -98,100 +66,6 @@ def main():
 
         # Agentクラスのインスタンスを作る
         agent = Agent(num_actions=env.action_space.n, load_model=True)
-
-        # env.monitor.start(ENV_NAME + '-test')
-        for _ in range(NUM_EPISODES_AT_TEST):
-            terminal = False
-            observation = env.reset()
-            for _ in range(random.randint(1, NO_OP_STEPS)):
-                last_observation = observation
-                observation, _, _, _ = env.step(0)
-                state = agent.get_initial_state(observation, last_observation)
-            while not terminal:
-                last_observation = observation
-                action = agent.get_action_at_test(state)
-                observation, _, terminal, _ = env.step(action)
-                env.render()
-                processed_observation = preprocess(observation, last_observation)
-                state = np.append(state[1:, :, :], processed_observation, axis=0)
-        # env.monitor.close()
-
-
-    elif MODE == Mode.MAKE_ADVISER_TRAIN_ON_TETRIS.value:
-        print("MODE is MAKE_ADVISER_TRAIN_ON_TETRIS")
-
-        agent = AgentOnTetris(num_actions=env.action_space.n, load_model=False)
-
-        global PRESSED_KEY
-        global RECIEVE_FLAG
-        PRESSED_KEY = ''
-        get_key = threading.Thread(target=keyboard_monitor)
-        get_key.setDaemon(True)
-        get_key.start()
-        
-        end_flag = False
-        human_mode = False
-        for _ in range(NUM_EPISODES):
-            terminal = False
-            human_reward = 0
-            observation = env.reset()
-            last_observation = observation
-            state = agent.get_initial_state(observation, last_observation)
-
-            while not terminal:
-                #sleep(0.05)
-                if PRESSED_KEY == '':
-                    human_action = 0
-                else:
-                    RECIEVE_FLAG = True
-                    if PRESSED_KEY == 'q':
-                        end_flag = True
-                        break
-                    elif PRESSED_KEY == '/':
-                        human_reward = +1
-                    elif PRESSED_KEY == '\\':
-                        human_reward = -1
-                    elif PRESSED_KEY == 'm':
-                        human_mode = not human_mode
-                    else:
-                        for i, key in enumerate(Key):
-                            if PRESSED_KEY == key.value:
-                                human_action = i 
-                                break
-
-                last_observation = observation
-                agent_action = agent.get_action(state)
-
-                if human_mode:
-                    action = human_action
-                else:
-                    action = agent_action
-
-                observation, reward, terminal, _ = env.step(action)
-                env.render()
-                processed_observation = preprocess(observation, last_observation)
-                #state = agent.run(state, action, reward, terminal, processed_observation)
-                state = agent.run(state, action, reward+human_reward, terminal, processed_observation)
-
-                if RECIEVE_FLAG:
-                    PRESSED_KEY = ''
-                    RECIEVE_FLAG = False
-                    human_reward = 0
-                    get_key = threading.Thread(target=keyboard_monitor)
-                    get_key.setDaemon(True)
-                    get_key.start()
-
-            if end_flag:
-                break
-
-
-    elif MODE == Mode.MAKE_ADVISER_TEST_ON_TETRIS.value:
-        print("MODE is MAKE_ADVISER_TRAIN")
-
-        env = wrappers.Monitor(env, directory='test', force=True)
-
-        # Agentクラスのインスタンスを作る
-        agent = AgentOnTetris(num_actions=env.action_space.n, load_model=True)
 
         # env.monitor.start(ENV_NAME + '-test')
         for _ in range(NUM_EPISODES_AT_TEST):

@@ -387,7 +387,7 @@ class Player():
             print("weights={}".format(self.advice_q_network.get_weights()))
             #for layer in self.advice_q_network.layers:
             #     print( layer.get_weights() )
-            """
+
             input1 = [[1,0,0,0]]
             input2 = [[0,1,0,0]]
             input3 = [[0,0,1,0]]
@@ -400,7 +400,7 @@ class Player():
             print("inputs2={}, output2={}".format(input2, output2))
             print("inputs3={}, output3={}".format(input3, output3))
             print("inputs4={}, output4={}".format(input4, output4))
-            """
+
 
         #print(self.debug.evaluate_gradients(self.sess, [[1,1,1,1]]))
         #print(self.debug.evaluate_gradients(self.sess, [[0,1,0,0]]))

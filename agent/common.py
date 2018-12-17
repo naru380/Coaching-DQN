@@ -18,10 +18,9 @@ from enum import Enum
 KERAS_BACKEND = 'tensorflow'
 
 ENV_NAME = 'BreakoutNoFrameskip-v4' # Gymの環境名
-ENV_NAME = 'Tetris-v0' # Gymの環境名
 FRAME_HEIGHT = 84 # リサイズ後のフレームの高さ
 FRAME_WIDTH = 84 # リサイズ後のフレーム幅
-NUM_EPISODES = 12000 # プレイするエピソード数
+NUM_EPISODES = 10000000 # プレイするエピソード数
 STATE_LENGTH = 4 # 状態を構成するフレーム数
 GAMMA = 0.99 # 割引率
 EXPLORATION_STEPS = 100000 # ε-greedey法のεが減少していくフレーム数
