@@ -63,7 +63,7 @@ class AgentOnTetris():
             self.summary_writer = tf.summary.FileWriter(TRAINED_ADVISER_SUMMARY_PATH, self.sess.graph)
 
             if not os.path.exists(TRAINED_ADVISER_NETWORK_PATH):
-                os.makedirs(TRINED_ADVISER_NETWORK_PATH)
+                os.makedirs(TRAINED_ADVISER_NETWORK_PATH)
 
             # 変数の初期化(Q Networkの初期化)
             self.sess.run(tf.global_variables_initializer())
