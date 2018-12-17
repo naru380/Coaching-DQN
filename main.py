@@ -25,7 +25,7 @@ class Mode(Enum):
     MAKE_ADVISER_TEST_ON_TETRIS = 4 # 作成したテトリスのアドバイザの確認
     IMPLEMENT_MAIN_TASK = 5 # メインのタスク実行
 
-MODE = 5
+MODE = 4
 
 
 class Key(Enum):
@@ -130,7 +130,8 @@ def main():
         get_key.start()
         
         end_flag = False
-        human_mode = False
+        human_mode = True
+        speed = 0.0
         for _ in range(NUM_EPISODES):
             terminal = False
             human_reward = 0
@@ -139,7 +140,7 @@ def main():
             state = agent.get_initial_state(observation, last_observation)
 
             while not terminal:
-                #sleep(0.05)
+                sleep(speed)
                 if PRESSED_KEY == '':
                     human_action = 0
                 else:
@@ -153,6 +154,12 @@ def main():
                         human_reward = -1
                     elif PRESSED_KEY == 'm':
                         human_mode = not human_mode
+                    elif PRESSED_KEY == 'o':
+                        speed += 0.01
+                    elif PRESSED_KEY == 'p':
+                        speed -= 0.01
+                        if speed <= 0.0:
+                            speed = 0
                     else:
                         for i, key in enumerate(Key):
                             if PRESSED_KEY == key.value:

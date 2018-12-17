@@ -1,15 +1,16 @@
 # coding:utf-8
 
-
-from enum import Enum
 from .common import *
 
+#INITIAL_REPLAY_SIZE_ON_TETRIS = 1000 # 学習前に事前確保するReplay Memory数
+INITIAL_REPLAY_SIZE_ON_TETRIS = 50000 # 学習前に事前確保するReplay Memory数(本家実装)
+#TARGET_UPDATE_INTERVAL_ON_TETRIS = 500 # Target Networkの更新をする間隔
+TARGET_UPDATE_INTERVAL_ON_TETRIS = 10000 # Target Networkの更新をする間隔(本家実装)
+SAVE_INTERVAL_ON_TETRIS = 10000  # Networkを保存する間隔
+#NITIAL_EPSILON_ON_TETRIS = 0.1 # ε-greedy法のεの初期値
 
-INITIAL_REPLAY_SIZE_ON_TETRIS = 1000 # 学習前に事前確保するReplay Memory数
-TARGET_UPDATE_INTERVAL_ON_TETRIS = 500 # Target Networkの更新をする間隔
-SAVE_INTERVAL_ON_TETRIS = 5000  # Networkを保存する間隔
-#INITIAL_EPSILON_ON_TETRIS = 0.1 # ε-greedy法のεの初期値
-GAMMA_ON_TETRIS = 0.8 # 割引率
+#GAMMA_ON_TETRIS = 0.8 # 割引率
+GAMMA_ON_TETRIS = 0.99 # 割引率
 
 
 
@@ -63,7 +64,8 @@ class AgentOnTetris():
             self.summary_writer = tf.summary.FileWriter(TRAINED_ADVISER_SUMMARY_PATH, self.sess.graph)
 
             if not os.path.exists(TRAINED_ADVISER_NETWORK_PATH):
-                os.makedirs(TRINED_ADVISER_NETWORK_PATH)
+                os.makedirs(TRAINED_ADVISER_NETWORK_PATH)
+
 
             # 変数の初期化(Q Networkの初期化)
             self.sess.run(tf.global_variables_initializer())
