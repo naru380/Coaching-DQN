@@ -16,13 +16,13 @@ from agent.adviser_on_tetris import AdviserOnTetris
 from agent.player_on_tetris import PlayerOnTetris
 
 
+MODE = 1
+HUMAN_PLAY = False
 
 class Mode(Enum):
     MAKE_ADVISER_TRAIN_ON_TETRIS = 1 # テトリスのアドバイザの作成
     MAKE_ADVISER_TEST_ON_TETRIS = 2 # 作成したテトリスのアドバイザの確認
     IMPLEMENT_MAIN_TASK_ON_TETRIS = 3 # メインのタスク実行
-
-MODE = 1
 
 
 class Key(Enum):
@@ -46,7 +46,8 @@ RECIEVE_FLAG = False
 def keyboard_monitor():
     global PRESSED_KEY
     #PRESSED_KEY = readchar.readchar()
-    PRESSED_KEY = readchar.readkey()
+    if HUMAN_PLAY:
+        PRESSED_KEY = readchar.readkey()
     while not RECIEVE_FLAG:
         pass
 
@@ -84,7 +85,7 @@ def main():
             state = agent.get_initial_state(observation, last_observation)
 
             while not terminal:
-                #sleep(0.05)
+                sleep(speed)
                 if PRESSED_KEY == '': # 何も押されなかったら場合は何も行わない
                     human_action = 0
                 else:
