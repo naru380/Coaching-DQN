@@ -4,6 +4,7 @@ import os
 import random
 import numpy as np
 import tensorflow as tf
+import pickle
 from collections import deque
 from time import sleep
 from skimage.color import rgb2gray
@@ -14,6 +15,7 @@ from keras.layers import concatenate
 from keras.optimizers import SGD, Adam
 from keras import backend as K
 from enum import Enum
+
 
 KERAS_BACKEND = 'tensorflow'
 
@@ -39,9 +41,15 @@ SAVE_INTERVAL = 300000  # Networkを保存する間隔
 NO_OP_STEPS = 30 # エピソード開始時に「何もしない」最大フレーム数（初期状態をランダムにする）
 TRAINED_ADVISER_NETWORK_PATH = 'trained_adviser/saved_networks/' + ENV_NAME # 学習済みのアドバイザのQ_Netowrkの重みの保存場所
 TRAINED_ADVISER_SUMMARY_PATH = 'trained_adviser/summary/' + ENV_NAME # アドバイザ学習時のデータの保存場所
-SAVE_NETWORK_PATH = 'log/saved_networks/' + ENV_NAME # タスク実行時のQ_Networkの重みを保存する場所
-SAVE_SUMMARY_PATH = 'log/summary/' + ENV_NAME # タスク実行時の学習データを保存する場所
+#SAVE_NETWORK_PATH = '/saved_networks/' + ENV_NAME # タスク実行時のQ_Networkの重みを保存する場所
+#SAVE_SUMMARY_PATH = '/summary/' + ENV_NAME # タスク実行時の学習データを保存する場所
+SAVE_NETWORK_PATH = '/saved_networks' # タスク実行時のQ_Networkの重みを保存する場所
+SAVE_SUMMARY_PATH = '/summary' # タスク実行時の学習データを保存する場所
 NUM_EPISODES_AT_TEST = 30  # テストプレイで実行するエピソード数
+
+
+#INITIAL_REPLAY_SIZE = 200 # 学習前に事前確保するReplay Memory数
+#SAVE_INTERVAL = 300  # Networkを保存する間隔
 
 
 

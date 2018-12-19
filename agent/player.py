@@ -3,7 +3,7 @@
 from .common import *
 
 class Player():
-    def __init__(self, num_actions):
+    def __init__(self, num_actions, logdir_path):
         self.num_actions = num_actions # 行動数
         self.epsilon = INITIAL_EPSILON # ε-greedy法のεの初期化
         self.epsilon_step = (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORATION_STEPS # εの減少率
@@ -75,12 +75,14 @@ class Player():
             
             self.saver = tf.train.Saver(q_network_weights)
             self.summary_placeholders, self.update_ops, self.summary_op = self.setup_summary()
-            self.summary_writer = tf.summary.FileWriter(SAVE_SUMMARY_PATH, self.sess.graph)
+            self.summary_logdir_path = logdir_path + SAVE_SUMMARY_PATH
+            self.summary_writer = tf.summary.FileWriter(self.summary_logdir_path, self.sess.graph)
             self.run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
             self.run_metadata = tf.RunMetadata()
 
-            if not os.path.exists(SAVE_NETWORK_PATH):
-                os.makedirs(SAVE_NETWORK_PATH)
+            self.network_logdir_path = logdir_path + SAVE_NETWORK_PATH
+            if not os.path.exists(self.network_logdir_path):
+                os.makedirs(self.network_logdir_path)
 
             # 変数の初期化(Q Networkの初期化)
             self.sess.run(tf.global_variables_initializer())
@@ -243,6 +245,7 @@ class Player():
         return mean
 
 
+    """
     def debug_mean(self, advice):
         K.set_session(self.sess)
 
@@ -251,7 +254,7 @@ class Player():
         mean = np.argmax(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
 
         return mean
-        
+    """ 
 
     """
     def _get_action(self, state, mean):
@@ -325,8 +328,14 @@ class Player():
 
             # Networkの保存
             if self.t % SAVE_INTERVAL == 0:
-                save_path = self.saver.save(self.sess, SAVE_NETWORK_PATH + '/' + ENV_NAME, global_step=(self.t))
+                save_path = self.saver.save(self.sess, self.network_logdir_path + '/' + 'Player_Action_Network', global_step=(self.t))
                 print('Successfully saved: ' + save_path)
+                f_replay_memory = open(self.network_logdir_path + '/replay_memory', 'wb')
+                pickle.dump(list(self.replay_memory), f_replay_memory)
+                f_replay_memory.close
+                f_parameters = open(self.network_logdir_path + '/parameters', 'wb')
+                pickle.dump([self.t, self.episode, self.epsilon], f_parameters)
+                f_parameters.close
 
         self.total_clipped_reward += reward
         self.action_net_total_q_max += np.max(self.q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
@@ -382,6 +391,7 @@ class Player():
             self.mean_net_total_loss = 0
             self.episode += 1
 
+            """
             K.set_session(self.sess)
             print("trainable_weights={}".format(self.advice_q_network.trainable_weights))
             print("weights={}".format(self.advice_q_network.get_weights()))
@@ -400,8 +410,8 @@ class Player():
             print("inputs2={}, output2={}".format(input2, output2))
             print("inputs3={}, output3={}".format(input3, output3))
             print("inputs4={}, output4={}".format(input4, output4))
-
-
+            """
+    
         #print(self.debug.evaluate_gradients(self.sess, [[1,1,1,1]]))
         #print(self.debug.evaluate_gradients(self.sess, [[0,1,0,0]]))
         #print(self.debug.evaluate_gradients(self.sess, [[0,0,1,0]]))

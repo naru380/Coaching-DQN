@@ -4,6 +4,9 @@ import gym
 import gym_tetris
 import random
 import numpy as np
+import itertools
+import csv
+import datetime
 
 from gym import wrappers
 from enum import Enum
@@ -14,12 +17,13 @@ from agent.adviser import Adviser
 from agent.player import Player
 
 
+MODE = 3
+
+
 class Mode(Enum):
     MAKE_ADVISER_TRAIN = 1 # Atariゲームのアドバイザ作成
     MAKE_ADVISER_TEST = 2 # 作成したAtariゲームのアドバイザの確認
     IMPLEMENT_MAIN_TASK = 3 # メインのタスク実行
-
-MODE = 3
 
 
 def main():
@@ -88,13 +92,45 @@ def main():
     elif MODE == Mode.IMPLEMENT_MAIN_TASK.value:
         print("MODE is IMPLEMENT_MAIN_TASK")
 
+        logdir_path = './logdir/{0:%Y%m%d-%H:%M:%S}_{1}'.format(datetime.datetime.now(), ENV_NAME)
+
+        if not os.path.exists(logdir_path):
+            os.makedirs(logdir_path)
+
+        """
+        if not os.path.exists(logdir_path + '/summary'):
+            os.makedirs(logdir_path + '/summary')
+            os.chmod(logdir_path + '/summary', 0o777)
+        """
+        f = open(logdir_path + '/log.csv', 'w')
+        writer = csv.writer(f, lineterminator='\n')
+        labels = [
+                "EPISODE",
+                "TIMESTEP",
+                "ADVICE_CURRENCY",
+                "ACTION_CURRENCY",
+                "AVERAGE_ADVICE_CURRENCY",
+                "AVERAGE_ACTION_CURRENCY",
+                ]
+
+        
+        advice_count = np.zeros((env.action_space.n, env.action_space.n))
+        action_count = np.zeros((env.action_space.n, env.action_space.n))
+
+        labels.extend(["ADVISER_ADVICE" + str(i) + "PLAYER_MEAN" + str(j) for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[1]))])
+        labels.extend(["ADVISER_ACTION" + str(i) + "PLAYER_ACTION" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
+
+        writer.writerow(labels)
+
+
         # Adviserクラスのインスタンスを作る
         adviser = Adviser(num_actions=env.action_space.n)
         # Playerクラスのインスタンスを作る
-        player = Player(num_actions=env.action_space.n)
+        player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
 
         # タスクを開始する
         for _ in range(NUM_EPISODES):
+            csvlist = []
             terminal = False
             observation = env.reset()
 
@@ -129,6 +165,10 @@ def main():
                 env.render() # 画面出力
                 processed_observation = preprocess(observation, last_observation)
 
+                advice_count[np.argmax(advice), mean] += 1
+                action_count[np.argmax(advice), np.argmax(player.q_values.eval(feed_dict={player.q_state: [np.float32(state / 255.0)]}, session=player.sess))
+] += 1
+
                 """
                 # アドバイザの処理
                 with adviser.graph.as_default():
@@ -141,37 +181,31 @@ def main():
                     # 内部状態を更新する
                     state = player.run(state, action, advice, mean, reward, terminal, processed_observation)
 
-            intention0 = 0
-            intention1 = 1
-            intention2 = 2
-            intention3 = 3
-            #intention4 = 4
-            """
-            advise1 =  adviser.get_advice([np.identity(env.action_space.n+1)[0]])
-            advise2 =  adviser.get_advice([np.identity(env.action_space.n+1)[1]])
-            advise3 =  adviser.get_advice([np.identity(env.action_space.n+1)[2]])
-            advise4 =  adviser.get_advisce([np.identity(env.action_space.n)[3]])
-            mean0 = np.argmax(player.get_action_from_advise(advise1))
-            advised_action2 = np.argmax(player.get_action_from_advise(advise2))
-            advised_action3 = np.argmax(player.get_action_from_advise(advise3))
-            advised_action4 = np.argmax(player.get_action_from_advise(advise4))
-            """
-            advice0 = np.identity(env.action_space.n+NUM_ANOTHER_MEAN)[intention0]
-            advice1 = np.identity(env.action_space.n+NUM_ANOTHER_MEAN)[intention1]
-            advice2 = np.identity(env.action_space.n+NUM_ANOTHER_MEAN)[intention2]
-            advice3 = np.identity(env.action_space.n+NUM_ANOTHER_MEAN)[intention3]
-            
-            #advice4 = np.identity(env.action_space.n+1)[intention4]
-            mean0 = player.debug_mean(advice0)
-            mean1 = player.debug_mean(advice1)
-            mean2 = player.debug_mean(advice2)
-            mean3 = player.debug_mean(advice3)
-            #mean4 = player.get_mean(advice4)
+            csvlist.extend([player.episode, player.t])
 
-            #print("adviser: [{}, {}, {}, {}, {}]".format(intention0, intention1, intention2, intention3, intention4))
-            #print("player : [{}, {}, {}, {}, {}]".format(mean0, mean1, mean2, mean3, mean4))
-            print("adviser: [{}, {}, {}, {}]".format(intention0, intention1, intention2, intention3))
-            print("player : [{}, {}, {}, {}]".format(mean0, mean1, mean2, mean3))
+            advice_currency = [advice_count[i, i] / np.sum(advice_count, axis=-1)[i] if np.sum(advice_count, axis=-1)[0] > 0 else 0 for i in range(env.action_space.n)]
+            csvlist.extend(advice_currency)
+            action_currency = [action_count[i, i] / np.sum(action_count, axis=-1)[i] if np.sum(action_count, axis=-1)[0] > 0 else 0 for i in range(env.action_space.n)]
+            csvlist.extend(action_currency)
+            print("ADVICE_CURRENCY = {}".format(advice_currency))
+            print("ACTION_CURRENCY = {}".format(action_currency))
+
+            average_advice_currency = np.trace(advice_count) / np.sum(advice_count)
+            csvlist.append(average_advice_currency)
+            average_action_currency = np.trace(action_count) / np.sum(action_count)
+            csvlist.append(average_action_currency)
+            print("AVERAGE_ADVICE_CURRENCY = {}".format(average_advice_currency))
+            print("AVERAGE_ACTION_CURRENCY = {}".format(average_action_currency))
+
+            csvlist.extend([advice_count[j, i] for i, j in zip(range(env.action_space.n), range(env.action_space.n))])
+            csvlist.extend([action_count[j, i] for i, j in zip(range(env.action_space.n), range(env.action_space.n))])
+
+            writer.writerow(csvlist)
+
+            print('')
+
+
+
     else:
         print("Invalid MODE is selected.")
 
