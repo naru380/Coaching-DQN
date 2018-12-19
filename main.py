@@ -97,11 +97,6 @@ def main():
         if not os.path.exists(logdir_path):
             os.makedirs(logdir_path)
 
-        """
-        if not os.path.exists(logdir_path + '/summary'):
-            os.makedirs(logdir_path + '/summary')
-            os.chmod(logdir_path + '/summary', 0o777)
-        """
         f = open(logdir_path + '/log.csv', 'w')
         writer = csv.writer(f, lineterminator='\n')
         labels = [
@@ -113,20 +108,18 @@ def main():
                 "AVERAGE_ACTION_CURRENCY",
                 ]
 
+        # Adviserクラスのインスタンスを作る
+        adviser = Adviser(num_actions=env.action_space.n)
+        # Playerクラスのインスタンスを作る
+        player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
         
-        advice_count = np.zeros((env.action_space.n, env.action_space.n))
-        action_count = np.zeros((env.action_space.n, env.action_space.n))
+        advice_count = np.zeros((adviser.num_advices, adviser.num_advices))
+        action_count = np.zeros((adviser.num_actions, adviser.num_actions))
 
         labels.extend(["ADVISER_ADVICE" + str(i) + "PLAYER_MEAN" + str(j) for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[1]))])
         labels.extend(["ADVISER_ACTION" + str(i) + "PLAYER_ACTION" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
 
         writer.writerow(labels)
-
-
-        # Adviserクラスのインスタンスを作る
-        adviser = Adviser(num_actions=env.action_space.n)
-        # Playerクラスのインスタンスを作る
-        player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
 
         # タスクを開始する
         for _ in range(NUM_EPISODES):
@@ -166,7 +159,7 @@ def main():
                 processed_observation = preprocess(observation, last_observation)
 
                 advice_count[np.argmax(advice), mean] += 1
-                action_count[np.argmax(advice), np.argmax(player.q_values.eval(feed_dict={player.q_state: [np.float32(state / 255.0)]}, session=player.sess))
+                action_count[np.argmax(adviser.q_values.eval(feed_dict={adviser.s: [np.float32(state / 255.0)]}, session=adviser.sess)), np.argmax(player.q_values.eval(feed_dict={player.q_state: [np.float32(state / 255.0)]}, session=player.sess))
 ] += 1
 
                 """
@@ -183,9 +176,9 @@ def main():
 
             csvlist.extend([player.episode, player.t])
 
-            advice_currency = [advice_count[i, i] / np.sum(advice_count, axis=-1)[i] if np.sum(advice_count, axis=-1)[0] > 0 else 0 for i in range(env.action_space.n)]
+            advice_currency = [advice_count[i, i] / np.sum(advice_count, axis=-1)[i] if np.sum(advice_count, axis=-1)[0] > 0 else 0 for i in range(advice_count.shape[-1])]
             csvlist.extend(advice_currency)
-            action_currency = [action_count[i, i] / np.sum(action_count, axis=-1)[i] if np.sum(action_count, axis=-1)[0] > 0 else 0 for i in range(env.action_space.n)]
+            action_currency = [action_count[i, i] / np.sum(action_count, axis=-1)[i] if np.sum(action_count, axis=-1)[0] > 0 else 0 for i in range(action_count.shape[-1])]
             csvlist.extend(action_currency)
             print("ADVICE_CURRENCY = {}".format(advice_currency))
             print("ACTION_CURRENCY = {}".format(action_currency))
