@@ -197,8 +197,8 @@ def main():
             print("AVERAGE_ADVICE_CURRENCY = {}".format(average_advice_currency))
             print("AVERAGE_ACTION_CURRENCY = {}".format(average_action_currency))
 
-            csvlist.extend([advice_count[j, i] for i, j in zip(range(env.action_space.n), range(env.action_space.n))])
-            csvlist.extend([action_count[j, i] for i, j in zip(range(env.action_space.n), range(env.action_space.n))])
+            csvlist.extend([advice_count[i, j] for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[0]))])
+            csvlist.extend([action_count[i, j] for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[0]))])
 
             writer.writerow(csvlist)
 
