@@ -18,6 +18,7 @@ from agent.player_on_tetris import PlayerOnTetris
 
 MODE = 1
 HUMAN_PLAY = False
+HUMAN_PLAY = True
 
 class Mode(Enum):
     MAKE_ADVISER_TRAIN_ON_TETRIS = 1 # テトリスのアドバイザの作成
