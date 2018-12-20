@@ -1,7 +1,6 @@
 # coding:utf-8
 
 import gym
-import gym_tetris
 import random
 import numpy as np
 import itertools
