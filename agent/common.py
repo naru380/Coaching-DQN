@@ -39,6 +39,7 @@ MOMENTUM = 0.25 # RSMPropで使われるモメンタム
 MIN_GRAD = 0.01 # RSMPropで使われる0で割るのを防ぐための値
 SAVE_INTERVAL = 300000  # Networkを保存する間隔
 NO_OP_STEPS = 30 # エピソード開始時に「何もしない」最大フレーム数（初期状態をランダムにする）
+ADVICE_RATE = 0.5
 TRAINED_ADVISER_NETWORK_PATH = 'trained_adviser/saved_networks/' + ENV_NAME # 学習済みのアドバイザのQ_Netowrkの重みの保存場所
 TRAINED_ADVISER_SUMMARY_PATH = 'trained_adviser/summary/' + ENV_NAME # アドバイザ学習時のデータの保存場所
 #SAVE_NETWORK_PATH = '/saved_networks/' + ENV_NAME # タスク実行時のQ_Networkの重みを保存する場所
@@ -54,10 +55,10 @@ NUM_EPISODES_AT_TEST = 30  # テストプレイで実行するエピソード数
 
 
 class AnotherMean(Enum):
-    NOOP = 0 # 何もしない
+    NOADVISE = 0 # アドバイスしない
 
 NUM_ANOTHER_MEAN = len(list(AnotherMean))
-NUM_ANOTHER_MEAN =  0
+#NUM_ANOTHER_MEAN =  0
 
 
 

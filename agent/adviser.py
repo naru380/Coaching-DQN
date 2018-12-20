@@ -5,6 +5,7 @@ from .common import *
 class Adviser():
     def __init__(self, num_actions):
         self.num_actions = num_actions # 行動数
+        self.num_advices = self.num_actions + NUM_ANOTHER_MEAN
         self.t = 0 # タイムステップ
         # self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
         self.repeated_advice = 0 # フレームスキップ間にリピートするアドバイスを保持するための変数
@@ -97,13 +98,12 @@ class Adviser():
     """
 
 
-    """
-    def _get_advice(self, state):
+    def get_advice(self, state):
         advice = self.repeated_advice
         
         if self.t % ACTION_INTERVAL == 0:
-            if random.random() <= 0.25:
-                advice = AnotherMean.NOOP.value
+            if random.random() <= 1-ADVICE_RATE:
+                advice = AnotherMean.NOADVISE.value
             else:
                 advice = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess)) + NUM_ANOTHER_MEAN
             self.repeated_advice = advice
@@ -111,10 +111,9 @@ class Adviser():
         self.t += 1
         
         # 言語としてone_hot_vectorを返す
-        return np.identity(self.num_actions+NUM_ANOTHER_MEAN)[advice]
+        return np.identity(self.num_advices)[advice]
+
     """
-
-
     def get_advice(self, state):
         advice = self.repeated_advice
         
@@ -126,6 +125,7 @@ class Adviser():
         
         # 言語としてone_hot_vectorを返す
         return np.identity(self.num_actions)[advice]
+    """
 
     
     """

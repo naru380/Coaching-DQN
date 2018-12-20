@@ -5,14 +5,12 @@ from .common import *
 class Player():
     def __init__(self, num_actions, logdir_path):
         self.num_actions = num_actions # 行動数
+        self.num_advices = self.num_actions + NUM_ANOTHER_MEAN
         self.epsilon = INITIAL_EPSILON # ε-greedy法のεの初期化
         self.epsilon_step = (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORATION_STEPS # εの減少率
         self.t = 0 # タイムステップ
         self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
         self.repeated_mean = 0 # フレームスキップ間にリピートする意味を保持するための変数
-        #self.average_total_reward = 0
-        #self.advise_memory = np.array([[]])
-        #self.action_memory = np.array([[]])
         
         # Replay Memoryの構築
         self.replay_memory = deque()
@@ -24,7 +22,6 @@ class Player():
         self.action_net_total_loss = 0
         self.mean_net_total_q_max = 0
         self.mean_net_total_loss = 0
-        #self.total_advice_net_loss = 0
         self.duration = 0
         self.episode = 0
 
@@ -70,7 +67,6 @@ class Player():
                     self.advice, self.advice_teacher_signal, self.advice_net_loss, self.advice_net_grad_update = self.build_advice_net_training_op(advice_q_network_weights)
 
             # Sessionの構築
-            #self.sess = tf.InteractiveSession()
             self.sess = tf.Session(graph=self.graph)
             
             self.saver = tf.train.Saver(q_network_weights)
@@ -86,7 +82,6 @@ class Player():
 
             # 変数の初期化(Q Networkの初期化)
             self.sess.run(tf.global_variables_initializer())
-            #sess.run(tf.global_variables_initializer())
 
             # Target Networkの初期化
             self.sess.run(self.update_target_network)
@@ -131,23 +126,6 @@ class Player():
         return state, q_values, model
 
 
-
-        """
-        model = Sequential()
-        model.add(Conv2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT)))
-        model.add(Conv2D(64, (4, 4), strides=(2, 2), activation='relu'))
-        model.add(Conv2D(64, (3, 3), strides=(1, 1), activation='relu'))
-        model.add(Flatten())
-        model.add(Dense(512, activation='relu'))
-        model.add(Dense(self.num_actions))
-
-        s = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT])
-        q_values = model(s)
-        """
-
-        #return s, ad, q_values, model
-
-
     def build_action_net_training_op(self, q_network_weights):
         action = tf.placeholder(tf.int64, [None], name='Action') # 行動
         teacher_signal = tf.placeholder(tf.float32, [None], name='Teacher_Signal') # 教師信号
@@ -172,18 +150,12 @@ class Player():
 
     
     def build_advice_network(self):
-        #advice_input = Input(shape=(1, self.num_actions+1))
-        advice_input = Input(shape=(self.num_actions+NUM_ANOTHER_MEAN, ))
+        advice_input = Input(shape=(self.num_advices, ))
 
-        #x = Dense(2, activation='sigmoid', kernel_initializer='uniform')(advice_input)
-        #x = Dense(self.num_actions+NUM_ANOTHER_MEAN, activation='sigmoid', kernel_initializer='uniform')(x)
-        x = Dense(self.num_actions+NUM_ANOTHER_MEAN, activation='sigmoid', kernel_initializer='uniform')(advice_input)
-        #x = Dense((self.num_actions+NUM_ANOTHER_MEAN)*4, activation='relu', kernel_initializer='uniform')(x)
-        #x = Dense((self.num_actions+NUM_ANOTHER_MEAN)*2, activation='relu', kernel_initializer='uniform')(x)
-        #x = Dense(self.num_actions+NUM_ANOTHER_MEAN, kernel_initializer='uniform')(x)
+        x = Dense(self.num_advices, activation='sigmoid', kernel_initializer='uniform')(advice_input)
         model = Model(inputs=[advice_input], outputs=x)
 
-        advice = tf.placeholder(tf.float32, [None, self.num_actions+NUM_ANOTHER_MEAN])
+        advice = tf.placeholder(tf.float32, [None, self.num_advices])
         q_values = model(inputs=[advice])
 
         self.debug = Debug(model)
@@ -192,15 +164,13 @@ class Player():
 
 
     def build_advice_net_training_op(self, q_network_weights):
-        #advice = tf.placeholder(tf.float32, [None, 1, self.num_actions+1], name='Advice') # アドバイス
         mean = tf.placeholder(tf.int64, [None], name='Mean') # 意味
         teacher_signal = tf.placeholder(tf.float32, [None], name='Teacher_Signal') # 教師信号
 
         with tf.variable_scope('1-Hot_Vecor_Generator'):
-            mean_one_hot = tf.one_hot(mean, self.num_actions+NUM_ANOTHER_MEAN, 1.0, 0.0) #意味をone hot vectorに変換する
+            mean_one_hot = tf.one_hot(mean, self.num_advices, 1.0, 0.0) #意味をone hot vectorに変換する
         with tf.variable_scope('Q_Value_Calculator'):
             q_value = tf.reduce_sum(tf.multiply(self.advice_q_values, mean_one_hot), reduction_indices=1) # 行動のQ値を計算
-            #q_value = tf.reduce_sum(tf.multiply(self.advice_q_values, advice), reduction_indices=1) # 行動のQ値を計算
 
         with tf.variable_scope('Error_Function'):
             # エラークリップ(the loss is quadratic when the error is in (-1, 1), and linear outside of that region） = Humber Lossに相当？
@@ -231,16 +201,11 @@ class Player():
 
         if self.t % ACTION_INTERVAL == 0:
             if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
-                mean = random.randrange(self.num_actions+NUM_ANOTHER_MEAN)
+                mean = random.randrange(self.num_advices)
             else:
                 mean = np.argmax(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
-            #print(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
-            #print("advice={}\nmean={}".format(advice, self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess)))
+
             self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
-            #mean = np.argmax(advice)
-            #self.repeated_mean = mean 
-            #print("advice={}\tmean={}".format(np.argmax(advice), mean))
-            #print("advice={}\tmean={}".format(np.argmax(advice), np.argmax(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))))
         
         return mean
 
@@ -255,9 +220,8 @@ class Player():
 
         return mean
     """ 
-
     """
-    def _get_action(self, state, mean):
+    def get_action(self, state, mean):
         action = self.repeated_action # 行動をリピート
         #_advice = np.argmax(self.advice_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
         #print("player:{}".format(_advice))
@@ -287,8 +251,19 @@ class Player():
         action = self.repeated_action # 行動をリピート
 
         if self.t % ACTION_INTERVAL == 0:
-            action = mean
-            self.repeated_action = mean # フレームスキップ間にリピートする行動を格納
+            if mean == AnotherMean.NOADVISE: # アドバイスが操作を示していない場合
+                """
+                if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
+                    action = random.randrange(self.num_actions) # ランダムに行動を選択
+                else:
+                    action = np.argmax(self.q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
+                """
+                action = np.argmax(self.q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
+                self.repeated_action = action # フレームスキップ間にリピートする行動を格納
+                
+            else: # アドバイスが操作を示している場合
+                action = mean-NUM_ANOTHER_MEAN
+                self.repeated_action = action
 
         # εを線形に減少させる
         if self.epsilon > FINAL_EPSILON and self.t >= INITIAL_REPLAY_SIZE:
@@ -412,40 +387,14 @@ class Player():
             print("inputs4={}, output4={}".format(input4, output4))
             """
     
-        #print(self.debug.evaluate_gradients(self.sess, [[1,1,1,1]]))
-        #print(self.debug.evaluate_gradients(self.sess, [[0,1,0,0]]))
-        #print(self.debug.evaluate_gradients(self.sess, [[0,0,1,0]]))
-        #print(self.debug.evaluate_gradients(self.sess, [[0,0,0,1]]))
-
+        """
+        print(self.debug.evaluate_gradients(self.sess, [[1,1,1,1]]))
+        print(self.debug.evaluate_gradients(self.sess, [[0,1,0,0]]))
+        print(self.debug.evaluate_gradients(self.sess, [[0,0,1,0]]))
+        print(self.debug.evaluate_gradients(self.sess, [[0,0,0,1]]))
+        """
 
         self.t += 1 # タイムステップ
-        #print(self.t)
-
-        """
-        advised_action = self.action.eval(feed_dict={self.la: advise}, session=self.sess)
-        self.advised_action = advised_action
-        rand = (1 - (-1)) * np.random.rand(advised_action.size).reshape(advised_action.shape) + (-1)
-        teacher_signal = advised_action + rand
-        teacher_signal[teacher_signal >= 1] = 0.9999999
-        teacher_signal[teacher_signal < 0] = 0
-        
-        self.action_memory = np.append(self.action_memory, teacher_signal)
-        self.advise_memory = np.append(self.advise_memory, advise)
-
-        if terminal == True:
-            self.total_reward += reward
-        else:
-            if self.total_reward <= self.average_total_reward:
-                # オンライン学習
-                #self.language_network.fit(np.array(action), teacher_signal, verbose=1)
-                # バッチ学習
-                self.train_language_network()
-            self.average_total_reward = (self.average_total_reward * (self.episode - 1) + self.total_reward) / self.episode
-            self.total_reward = 0
-            self.episode += 1
-            self.advise_memory = np.array([[]])
-            self.action_memory = np.array([[]])
-        """
 
         return next_state
 
