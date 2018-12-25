@@ -92,7 +92,7 @@ def main():
         print("MODE is IMPLEMENT_MAIN_TASK")
 
         # ログファイルを保存するパスを指定する
-        logdir_path = './logdir/{0:%Y%m%d-%H:%M:%S}_{1}'.format(datetime.datetime.now(), ENV_NAME)
+        logdir_path = './logdir/{0:%Y%m%d%H%M%S}_{1}'.format(datetime.datetime.now(), ENV_NAME)
 
         if not os.path.exists(logdir_path):
             os.makedirs(logdir_path)
