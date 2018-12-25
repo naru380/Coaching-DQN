@@ -100,21 +100,18 @@ def main():
         # ログを書き込むファイルを開く
         f = open(logdir_path + '/log.csv', 'w')
         writer = csv.writer(f, lineterminator='\n')
-        labels = [
-                "EPISODE",
-                "TIMESTEP",
-                "ADVICE_CURRENCY",
-                "ACTION_CURRENCY",
-                "AVERAGE_ADVICE_CURRENCY",
-                "AVERAGE_ACTION_CURRENCY",
-                ]
 
+        labels = ["EPISODE", "TIMESTEP"]
         
         advice_count = np.zeros((env.action_space.n, env.action_space.n))
         action_count = np.zeros((env.action_space.n, env.action_space.n))
 
-        labels.extend(["ADVISER_ADVICE" + str(i) + "-" + "PLAYER_MEAN" + str(j) for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[1]))])
-        labels.extend(["ADVISER_ACTION" + str(i) + "-" + "PLAYER_ACTION" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
+        labels.extend(["ADVICE_CURRENCY_" + str(i) for i in range(advice_count.shape[0])])
+        labels.append("AVERAGE_ADVICE_CURRENCY")
+        labels.extend(["ACTION_CURRENCY_" + str(i) for i in range(action_count.shape[0])])
+        labels.append("AVERAGE_ACTION_CURRENCY")
+        labels.extend(["ADVISER_ADVICE_" + str(i) + "-" + "PLAYER_MEAN_" + str(j) for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[1]))])
+        labels.extend(["ADVISER_ACTION_" + str(i) + "-" + "PLAYER_ACTION_" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
 
         writer.writerow(labels)
 
