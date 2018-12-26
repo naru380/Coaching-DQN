@@ -91,33 +91,32 @@ def main():
     elif MODE == Mode.IMPLEMENT_MAIN_TASK.value:
         print("MODE is IMPLEMENT_MAIN_TASK")
 
-        logdir_path = './logdir/{0:%Y%m%d-%H:%M:%S}_{1}'.format(datetime.datetime.now(), ENV_NAME)
-
-        if not os.path.exists(logdir_path):
-            os.makedirs(logdir_path)
-
-        f = open(logdir_path + '/log.csv', 'w')
-        writer = csv.writer(f, lineterminator='\n')
-        labels = [
-                "EPISODE",
-                "TIMESTEP",
-                "ADVICE_CURRENCY",
-                "ACTION_CURRENCY",
-                "AVERAGE_ADVICE_CURRENCY",
-                "AVERAGE_ACTION_CURRENCY",
-                ]
+        # ログファイルを保存するパスを指定する
+        logdir_path = './logdir/{0:%Y%m%d%H%M%S}_{1}'.format(datetime.datetime.now(), ENV_NAME)
 
         # Adviserクラスのインスタンスを作る
         adviser = Adviser(num_actions=env.action_space.n)
         # Playerクラスのインスタンスを作る
         player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
-        
+
+        # ログファイルを保存するフォルダを作成する
+        if not os.path.exists(logdir_path):
+            os.makedirs(logdir_path)
+
+        # ログを書き込むファイルを開く
+        f = open(logdir_path + '/log.csv', 'w')
+        writer = csv.writer(f, lineterminator='\n')
+
+        # ログファイルのラベルの書き込み
+        labels = ["EPISODE", "TIMESTEP"]
         advice_count = np.zeros((adviser.num_advices, adviser.num_advices))
         action_count = np.zeros((adviser.num_actions, adviser.num_actions))
-
-        labels.extend(["ADVISER_ADVICE" + str(i) + "PLAYER_MEAN" + str(j) for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[1]))])
-        labels.extend(["ADVISER_ACTION" + str(i) + "PLAYER_ACTION" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
-
+        labels.extend(["ADVICE_CURRENCY_" + str(i) for i in range(advice_count.shape[0])])
+        labels.append("AVERAGE_ADVICE_CURRENCY")
+        labels.extend(["ACTION_CURRENCY_" + str(i) for i in range(action_count.shape[0])])
+        labels.append("AVERAGE_ACTION_CURRENCY")
+        labels.extend(["ADVISER_ADVICE_" + str(i) + "-" + "PLAYER_MEAN_" + str(j) for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[1]))])
+        labels.extend(["ADVISER_ACTION_" + str(i) + "-" + "PLAYER_ACTION_" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
         writer.writerow(labels)
 
         # タスクを開始する
@@ -157,9 +156,9 @@ def main():
                 env.render() # 画面出力
                 processed_observation = preprocess(observation, last_observation)
 
-                advice_count[np.argmax(advice), mean] += 1
-                action_count[np.argmax(adviser.q_values.eval(feed_dict={adviser.s: [np.float32(state / 255.0)]}, session=adviser.sess)), np.argmax(player.q_values.eval(feed_dict={player.q_state: [np.float32(state / 255.0)]}, session=player.sess))
-] += 1
+                _action, _mean = player.get_network_outputs(state, advice)
+                advice_count[np.argmax(advice), _mean] += 1
+                action_count[adviser.get_network_outputs(state), _action] += 1
 
                 """
                 # アドバイザの処理
@@ -173,11 +172,12 @@ def main():
                     # 内部状態を更新する
                     state = player.run(state, action, advice, mean, reward, terminal, processed_observation)
 
+            # ログの書き込み
             csvlist.extend([player.episode, player.t])
 
-            advice_currency = [advice_count[i, i] / np.sum(advice_count, axis=-1)[i] if np.sum(advice_count, axis=-1)[0] > 0 else 0 for i in range(advice_count.shape[-1])]
+            advice_currency = [advice_count[i, i] / np.sum(advice_count, axis=0)[i] if np.sum(advice_count, axis=0)[i] > 0 else 0.0 for i in range(advice_count.shape[0])]
             csvlist.extend(advice_currency)
-            action_currency = [action_count[i, i] / np.sum(action_count, axis=-1)[i] if np.sum(action_count, axis=-1)[0] > 0 else 0 for i in range(action_count.shape[-1])]
+            action_currency = [action_count[i, i] / np.sum(action_count, axis=0)[i] if np.sum(action_count, axis=0)[i] > 0 else 0.0 for i in range(action_count.shape[0])]
             csvlist.extend(action_currency)
             print("ADVICE_CURRENCY = {}".format(advice_currency))
             print("ACTION_CURRENCY = {}".format(action_currency))
@@ -194,9 +194,10 @@ def main():
 
             writer.writerow(csvlist)
 
+            advice_count = np.zeros((adviser.num_advices, adviser.num_advices))
+            action_count = np.zeros((adviser.num_actions, adviser.num_actions))
+
             print('')
-
-
 
     else:
         print("Invalid MODE is selected.")
