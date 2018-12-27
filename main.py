@@ -159,7 +159,7 @@ def main():
                 processed_observation = preprocess(observation, last_observation)
 
                 _action, _mean = player.get_network_outputs(state, advice)
-                advice_count[np.argmax(advice), _mean] += 1
+                advice_count[np.argmax(advice), mean] += 1
                 action_count[np.argmax(advice), _action] += 1
                 #print("{}, {}, {}".format(np.argmax(advice), _mean, _action))
 
