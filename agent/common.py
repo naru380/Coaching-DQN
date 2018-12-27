@@ -47,16 +47,21 @@ SAVE_SUMMARY_PATH = '/summary' # タスク実行時の学習データを保存�
 NUM_EPISODES_AT_TEST = 30  # テストプレイで実行するエピソード数
 
 
-#INITIAL_REPLAY_SIZE = 200 # 学習前に事前確保するReplay Memory数
+INITIAL_REPLAY_SIZE = 200 # 学習前に事前確保するReplay Memory数
+TARGET_UPDATE_INTERVAL = 500 # Target Networkの更新をする間隔
 #SAVE_INTERVAL = 300  # Networkを保存する間隔
+
+AQUIRED_LANGUAGE = True # デバッグ用(言語獲得済みの場合にアドバイスが有利に働くのかを確認する)
 
 
 
 class AnotherMean(Enum):
-    NOOP = 0 # 何もしない
+    #NOADVISE = 0 # アドバイスしない
+    EVALUATE_GOOD = 0 # 「良い」と評価をする
+    EVALUATE_BAD = 1 # 「悪い」と評価をする
 
 NUM_ANOTHER_MEAN = len(list(AnotherMean))
-NUM_ANOTHER_MEAN =  0
+#NUM_ANOTHER_MEAN =  0
 
 
 

@@ -94,6 +94,11 @@ def main():
         # ログファイルを保存するパスを指定する
         logdir_path = './logdir/{0:%Y%m%d%H%M%S}_{1}'.format(datetime.datetime.now(), ENV_NAME)
 
+        # Adviserクラスのインスタンスを作る
+        adviser = Adviser(num_actions=env.action_space.n)
+        # Playerクラスのインスタンスを作る
+        player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
+
         if not os.path.exists(logdir_path):
             os.makedirs(logdir_path)
 
@@ -103,7 +108,7 @@ def main():
 
         labels = ["EPISODE", "TIMESTEP"]
         
-        advice_count = np.zeros((env.action_space.n, env.action_space.n))
+        advice_count = np.zeros((NUM_ANOTHER_MEAN, NUM_ANOTHER_MEAN))
         action_count = np.zeros((env.action_space.n, env.action_space.n))
 
         labels.extend(["ADVICE_CURRENCY_" + str(i) for i in range(advice_count.shape[0])])
@@ -114,12 +119,6 @@ def main():
         labels.extend(["ADVISER_ACTION_" + str(i) + "-" + "PLAYER_ACTION_" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
 
         writer.writerow(labels)
-
-
-        # Adviserクラスのインスタンスを作る
-        adviser = Adviser(num_actions=env.action_space.n)
-        # Playerクラスのインスタンスを作る
-        player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
 
         # タスクを開始する
         for _ in range(NUM_EPISODES):
@@ -139,18 +138,18 @@ def main():
 
             while not terminal:
                 last_observation = observation
+                """
                 # アドバイザの処理
                 with adviser.graph.as_default():
                     # ゲーム画面からアドバイスを決定する
                     advice = list(adviser.get_advice(state))
                     #print("advice = {}", advice)
+                """
 
                 # プレイヤの処理
                 with player.graph.as_default():
-                    # アドバイス(言語)から意味を推定する
-                    mean = player.get_mean(advice)
 #                   # 操作を決定する
-                    action = player.get_action(state, mean)
+                    action = player.get_action(state)
                     #print("action = {}".format(action)))
 
                 # 環境に対するプレイヤの行動を決定し，次のステップ(画面)へ移行する
@@ -158,9 +157,21 @@ def main():
                 env.render() # 画面出力
                 processed_observation = preprocess(observation, last_observation)
 
-                _action, _mean = player.get_network_outputs(state, advice)
-                advice_count[np.argmax(advice), _mean] += 1
-                action_count[np.argmax(advice), _action] += 1
+                # アドバイザの処理
+                with adviser.graph.as_default():
+                    # ゲーム画面からアドバイスを決定する
+                    advice = list(adviser.get_advice(state, action))
+                    #print("advice = {}", advice)
+
+                # プレイヤの処理
+                with player.graph.as_default():
+                    # アドバイス(言語)から意味を推定する
+                    mean = player.get_mean(advice)
+
+                #_action, _mean = player.get_network_outputs(state, advice)
+                _action = adviser.get_action(state)
+                advice_count[np.argmax(advice), mean] += 1
+                action_count[_action, action] += 1
                 #print("{}, {}, {}".format(np.argmax(advice), _mean, _action))
 
                 # プレイヤの処理
@@ -191,7 +202,7 @@ def main():
 
             writer.writerow(csvlist)
 
-            advice_count = np.zeros((env.action_space.n, env.action_space.n))
+            advice_count = np.zeros((NUM_ANOTHER_MEAN, NUM_ANOTHER_MEAN))
             action_count = np.zeros((env.action_space.n, env.action_space.n))
 
             print('')

@@ -5,6 +5,7 @@ from .common import *
 class Player():
     def __init__(self, num_actions, logdir_path):
         self.num_actions = num_actions # 行動数
+        self.num_advices = NUM_ANOTHER_MEAN # アドバイス数
         self.epsilon = INITIAL_EPSILON # ε-greedy法のεの初期化
         self.epsilon_step = (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORATION_STEPS # εの減少率
         self.t = 0 # タイムステップ
@@ -17,6 +18,7 @@ class Player():
         # summaryに使用するパラメータ
         self.total_clipped_reward = 0
         self.total_non_clipped_reward = 0
+        self.total_evaluation_reward = 0
         self.action_net_total_q_max = 0
         self.action_net_total_loss = 0
         self.mean_net_total_q_max = 0
@@ -63,13 +65,13 @@ class Player():
                     self.update_mean_target_network = [mean_target_network_weights[i].assign(mean_q_network_weights[i]) for i in range(len(mean_target_network_weights))]
 
                     # 誤差関数や最適化のための処理の構築
-                    self.advice, self.mean_teacher_signal, self.mean_net_loss, self.mean_net_grad_update = self.build_mean_net_training_op(mean_q_network_weights)
+                    self.mean, self.mean_teacher_signal, self.mean_net_loss, self.mean_net_grad_update = self.build_mean_net_training_op(mean_q_network_weights)
 
             # Sessionの構築
             self.sess = tf.Session(graph=self.graph)
             
-            self.action_q_net_saver = tf.train.Saver(action_q_network_weights)
-            self.mean_q_net_saver = tf.train.Saver(mean_q_network_weights)
+            self.action_q_net_saver = tf.train.Saver(action_q_network_weights, name='Action_Network_Saver')
+            self.mean_q_net_saver = tf.train.Saver(mean_q_network_weights, name='Mean_Network_Saver')
 
             self.summary_placeholders, self.update_ops, self.summary_op = self.setup_summary()
             self.summary_logdir_path = logdir_path + SAVE_SUMMARY_PATH
@@ -92,12 +94,12 @@ class Player():
     def build_action_network(self):
         # ~/.keras/keras.jsonのimage_data_formatを'channel_last'から'channel_first'に変更
         display_input = Input(shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT), dtype=tf.float32)
-        x = Conv2D(32, (8, 8), strides=(4, 4), activation='relu', kernel_initializer='normal')(display_input)
-        x = Conv2D(64, (4, 4), strides=(2, 2), activation='relu', kernel_initializer='normal')(x)
-        x = Conv2D(64, (3, 3), strides=(1, 1), activation='relu', kernel_initializer='normal')(x)
-        x = Flatten()(x)
-        x = Dense(512, activation='relu', kernel_initializer='normal')(x)
-        x = Dense(self.num_actions, kernel_initializer='normal')(x)
+        x = Conv2D(32, (8, 8), strides=(4, 4), activation='relu', kernel_initializer='normal', name='Conv2D_1')(display_input)
+        x = Conv2D(64, (4, 4), strides=(2, 2), activation='relu', kernel_initializer='normal', name='Conv2D_2')(x)
+        x = Conv2D(64, (3, 3), strides=(1, 1), activation='relu', kernel_initializer='normal', name='Conv2D_3')(x)
+        x = Flatten(name='Flatten')(x)
+        x = Dense(512, activation='relu', kernel_initializer='normal', name='Dense_1')(x)
+        x = Dense(self.num_actions, kernel_initializer='normal', name='Dense_2')(x)
         model = Model(inputs=[display_input], outputs=x)
 
         state = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT])
@@ -130,10 +132,10 @@ class Player():
 
     
     def build_mean_network(self):
-        advice_input = Input(shape=(self.num_actions+NUM_ANOTHER_MEAN, ))
-        x = Dense(self.num_actions+NUM_ANOTHER_MEAN, activation='sigmoid', kernel_initializer='uniform')(advice_input)
+        advice_input = Input(shape=(self.num_advices, ))
+        x = Dense(self.num_advices, activation='sigmoid', kernel_initializer='uniform', name='Dense_1')(advice_input)
         model = Model(inputs=[advice_input], outputs=x)
-        advice = tf.placeholder(tf.float32, [None, self.num_actions+NUM_ANOTHER_MEAN])
+        advice = tf.placeholder(tf.float32, [None, self.num_advices], name='Advice')
         q_values = model(inputs=[advice])
 
         self.debug = Debug(model)
@@ -146,7 +148,7 @@ class Player():
         teacher_signal = tf.placeholder(tf.float32, [None], name='Teacher_Signal') # 教師信号
 
         with tf.variable_scope('1-Hot_Vecor_Generator'):
-            mean_one_hot = tf.one_hot(mean, self.num_actions+NUM_ANOTHER_MEAN, 1.0, 0.0) #意味をone hot vectorに変換する
+            mean_one_hot = tf.one_hot(mean, self.num_advices, 1.0, 0.0) #意味をone hot vectorに変換する
         with tf.variable_scope('Q_Value_Calculator'):
             q_value = tf.reduce_sum(tf.multiply(self.mean_q_values, mean_one_hot), reduction_indices=1) # 行動のQ値を計算
 
@@ -175,23 +177,39 @@ class Player():
         mean = self.repeated_mean # 意味をリピート
 
         K.set_session(self.sess)
-
-        if self.t % ACTION_INTERVAL == 0:
-            if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
-                mean = random.randrange(self.num_actions+NUM_ANOTHER_MEAN)
-            else:
-                mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
-            self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
         
+        if AQUIRED_LANGUAGE == True:
+            if self.t % ACTION_INTERVAL == 0:
+                if np.argmax(advice) == AnotherMean.EVALUATE_GOOD.value:
+                    mean = 0
+                else:
+                    mean = 1
+                self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
+        else:
+            if self.t % ACTION_INTERVAL == 0:
+                """
+                if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
+                    mean = random.randrange(self.num_advices)
+                else:
+                    mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
+                """
+                mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
+                self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
+
         return mean
 
 
-    def get_action(self, state, mean):
+    def get_action(self, state):
         action = self.repeated_action # 行動をリピート
 
+        K.set_session(self.sess)
+
         if self.t % ACTION_INTERVAL == 0:
-            action = mean
-            self.repeated_action = mean # フレームスキップ間にリピートする行動を格納
+            if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
+                action = random.randrange(self.num_actions)
+            else:
+                action = np.argmax(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
+            self.repeated_action = action # フレームスキップ間にリピートする行動を格納
 
         # εを線形に減少させる
         if self.epsilon > FINAL_EPSILON and self.t >= INITIAL_REPLAY_SIZE:
@@ -213,8 +231,16 @@ class Player():
         # 報酬を固定、正は1、負は−1、0はそのまま
         reward = np.sign(reward)
 
+        # 評価から報酬を得る
+        if mean == AnotherMean.EVALUATE_GOOD.value:
+            evaluation_reward = reward + 1
+        elif mean == AnotherMean.EVALUATE_BAD.value:
+            evaluation_reward = reward - 1
+        else:
+            pass
+
         # Replay Memoryに遷移を保存
-        self.replay_memory.append((state, action, advice, mean, reward, next_state, terminal))
+        self.replay_memory.append((state, action, advice, mean, reward, reward+evaluation_reward, next_state, terminal))
         
         # Replay Memoryが一定数を超えたら、古い遷移から削除
         if len(self.replay_memory) > NUM_REPLAY_MEMORY:
@@ -245,6 +271,7 @@ class Player():
                 f_parameters.close
 
         self.total_clipped_reward += reward
+        se;f.total_evaluation_reward += evaluation_reward
         self.action_net_total_q_max += np.max(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
         self.mean_net_total_q_max += np.max(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
         self.duration += 1
@@ -256,6 +283,7 @@ class Player():
                         float(self.duration),
                         self.total_non_clipped_reward,
                         self.total_clipped_reward,
+                        self.total_evaluated_reward,
                         self.action_net_total_q_max / float(self.duration),
                         self.action_net_total_loss / (float(self.duration) / float(TRAIN_INTERVAL)),
                         self.mean_net_total_q_max / float(self.duration),
@@ -292,6 +320,7 @@ class Player():
             self.duration = 0
             self.total_clipped_reward = 0
             self.total_non_clipped_reward = 0
+            self.total_evaluated_reward = 0
             self.action_net_total_q_max = 0
             self.action_net_total_loss = 0
             self.mean_net_total_q_max = 0
@@ -309,6 +338,7 @@ class Player():
         advice_batch = []
         mean_batch = []
         reward_batch = []
+        evaluated_reward_batch = []
         next_state_batch = []
         terminal_batch = []
         action_net_teacher_signal_batch = []
@@ -322,8 +352,9 @@ class Player():
             advice_batch.append(data[2])
             mean_batch.append(data[3])
             reward_batch.append(data[4])
-            next_state_batch.append(data[5])
-            terminal_batch.append(data[6])
+            evaluated_reward_batch.append(data[5])
+            next_state_batch.append(data[6])
+            terminal_batch.append(data[7])
 
         K.set_session(self.sess)
 
@@ -331,10 +362,10 @@ class Player():
         terminal_batch = np.array(terminal_batch) + 0
         # Target Networkで次の状態でのQ値を計算
         action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess) 
-        advice_target_q_values_batch = self.mean_target_q_values.eval(feed_dict={self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
+        mean_target_q_values_batch = self.mean_target_q_values.eval(feed_dict={self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
         # 教師信号を計算
-        action_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
-        advice_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(advice_target_q_values_batch, axis=1)
+        action_net_teacher_signal_batch = evaluated_reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
+        mean_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(mean_target_q_values_batch, axis=1)
 
         # 勾配法による誤差最小化
         action_net_loss, _ = self.sess.run([self.action_net_loss, self.action_net_grad_update], feed_dict={
@@ -345,8 +376,8 @@ class Player():
         
         mean_net_loss, _ = self.sess.run([self.mean_net_loss, self.mean_net_grad_update], feed_dict={
             self.q_advice: np.float32(np.array(advice_batch)),
-            self.advice: mean_batch,
-            self.mean_teacher_signal: advice_net_teacher_signal_batch
+            self.mean: mean_batch,
+            self.mean_teacher_signal: mean_net_teacher_signal_batch
             }, options=self.run_options, run_metadata=self.run_metadata)
 
         self.action_net_total_loss += action_net_loss
@@ -364,7 +395,10 @@ class Player():
             tf.summary.scalar(ENV_NAME + '/Total Non-Clipped Reward/Episode', episode_total_non_clipped_reward)
 
             episode_total_clipped_reward = tf.Variable(0., name='Total_Clipped_Reward')
-            tf.summary.scalar(ENV_NAME + '/Total Clipped_Reward/Episode', episode_total_clipped_reward)
+            tf.summary.scalar(ENV_NAME + '/Total Clipped Reward/Episode', episode_total_clipped_reward)
+
+            episode_total_evaluation_reward = tf.Variable(0., name='Total_Evaluation_Reward')
+            tf.summary.scalar(ENV_NAME + '/Total Evaluation Reward/Episode', episode_total_evaluation_reward)
 
             episode_action_net_avg_max_q = tf.Variable(0., name='Avg_Action_Net_Max_Q')
             tf.summary.scalar(ENV_NAME + '/Average Action Network Max Q/Episode', episode_action_net_avg_max_q)
@@ -382,6 +416,7 @@ class Player():
                     episode_duration, 
                     episode_total_non_clipped_reward, 
                     episode_total_clipped_reward, 
+                    episode_total_evaluation_reward,
                     episode_action_net_avg_max_q, 
                     episode_action_net_avg_loss, 
                     episode_mean_net_avg_max_q, 
@@ -402,5 +437,3 @@ class Player():
         mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
 
         return action, mean
-
-
