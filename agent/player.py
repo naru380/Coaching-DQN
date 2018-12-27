@@ -131,8 +131,8 @@ class Player():
     
     def build_mean_network(self):
         advice_input = Input(shape=(self.num_actions+NUM_ANOTHER_MEAN, ))
-        x = Dense(self.num_actions+NUM_ANOTHER_MEAN, activation='sigmoid', kernel_initializer='uniform', name='Dense_1')(advice_input)
-        x = Dense((self.num_actions+NUM_ANOTHER_MEAN)*2, activation='sigmoid', kernel_initializer='uniform', name='Dense_2')(x)
+        x = Dense((self.num_actions+NUM_ANOTHER_MEAN)*2, activation='sigmoid', kernel_initializer='uniform', name='Dense_1')(advice_input)
+        x = Dense(self.num_actions+NUM_ANOTHER_MEAN, activation='sigmoid', kernel_initializer='uniform', name='Dense_2')(x)
         model = Model(inputs=[advice_input], outputs=x)
         advice = tf.placeholder(tf.float32, [None, self.num_actions+NUM_ANOTHER_MEAN], name='Advice')
         q_values = model(inputs=[advice])
