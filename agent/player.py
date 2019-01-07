@@ -63,13 +63,13 @@ class Player():
                     self.update_mean_target_network = [mean_target_network_weights[i].assign(mean_q_network_weights[i]) for i in range(len(mean_target_network_weights))]
 
                     # 誤差関数や最適化のための処理の構築
-                    self.advice, self.mean_teacher_signal, self.mean_net_loss, self.mean_net_grad_update = self.build_mean_net_training_op(mean_q_network_weights)
+                    self.mean, self.mean_teacher_signal, self.mean_net_loss, self.mean_net_grad_update = self.build_mean_net_training_op(mean_q_network_weights)
 
             # Sessionの構築
             self.sess = tf.Session(graph=self.graph)
             
-            self.action_q_net_saver = tf.train.Saver(action_q_network_weights)
-            self.mean_q_net_saver = tf.train.Saver(mean_q_network_weights)
+            self.action_q_net_saver = tf.train.Saver(action_q_network_weights, name='Action_Network_Saver')
+            self.mean_q_net_saver = tf.train.Saver(mean_q_network_weights, name='Mean_Network_Saver')
 
             self.summary_placeholders, self.update_ops, self.summary_op = self.setup_summary()
             self.summary_logdir_path = logdir_path + SAVE_SUMMARY_PATH
@@ -92,15 +92,15 @@ class Player():
     def build_action_network(self):
         # ~/.keras/keras.jsonのimage_data_formatを'channel_last'から'channel_first'に変更
         display_input = Input(shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT), dtype=tf.float32)
-        x = Conv2D(32, (8, 8), strides=(4, 4), activation='relu', kernel_initializer='normal')(display_input)
-        x = Conv2D(64, (4, 4), strides=(2, 2), activation='relu', kernel_initializer='normal')(x)
-        x = Conv2D(64, (3, 3), strides=(1, 1), activation='relu', kernel_initializer='normal')(x)
-        x = Flatten()(x)
-        x = Dense(512, activation='relu', kernel_initializer='normal')(x)
-        x = Dense(self.num_actions, kernel_initializer='normal')(x)
+        x = Conv2D(32, (8, 8), strides=(4, 4), activation='relu', kernel_initializer='normal', name='Conv2D_1')(display_input)
+        x = Conv2D(64, (4, 4), strides=(2, 2), activation='relu', kernel_initializer='normal', name='Conv2D_2')(x)
+        x = Conv2D(64, (3, 3), strides=(1, 1), activation='relu', kernel_initializer='normal', name='Conv2D_3')(x)
+        x = Flatten(name='Flatten')(x)
+        x = Dense(512, activation='relu', kernel_initializer='normal', name='Dense_1')(x)
+        x = Dense(self.num_actions, kernel_initializer='normal', name='Dense_2')(x)
         model = Model(inputs=[display_input], outputs=x)
 
-        state = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT])
+        state = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT], name='State')
         q_values = model(inputs=[state])
 
         return state, q_values, model
@@ -130,10 +130,11 @@ class Player():
 
     
     def build_mean_network(self):
-        advice_input = Input(shape=(self.num_actions+NUM_ANOTHER_MEAN, ))
-        x = Dense(self.num_actions+NUM_ANOTHER_MEAN, activation='sigmoid', kernel_initializer='uniform')(advice_input)
+        advice_input = Input(shape=(self.num_actions, ))
+        x = Dense(self.num_actions*2, activation='sigmoid', kernel_initializer='uniform', name='Dense_1')(advice_input)
+        x = Dense(self.num_actions, activation='sigmoid', kernel_initializer='uniform', name='Dense_2')(x)
         model = Model(inputs=[advice_input], outputs=x)
-        advice = tf.placeholder(tf.float32, [None, self.num_actions+NUM_ANOTHER_MEAN])
+        advice = tf.placeholder(tf.float32, [None, self.num_actions], name='Advice')
         q_values = model(inputs=[advice])
 
         self.debug = Debug(model)
@@ -146,7 +147,7 @@ class Player():
         teacher_signal = tf.placeholder(tf.float32, [None], name='Teacher_Signal') # 教師信号
 
         with tf.variable_scope('1-Hot_Vecor_Generator'):
-            mean_one_hot = tf.one_hot(mean, self.num_actions+NUM_ANOTHER_MEAN, 1.0, 0.0) #意味をone hot vectorに変換する
+            mean_one_hot = tf.one_hot(mean, self.num_actions, 1.0, 0.0) #意味をone hot vectorに変換する
         with tf.variable_scope('Q_Value_Calculator'):
             q_value = tf.reduce_sum(tf.multiply(self.mean_q_values, mean_one_hot), reduction_indices=1) # 行動のQ値を計算
 
@@ -178,7 +179,7 @@ class Player():
 
         if self.t % ACTION_INTERVAL == 0:
             if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
-                mean = random.randrange(self.num_actions+NUM_ANOTHER_MEAN)
+                mean = random.randrange(self.num_actions)
             else:
                 mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
             self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
@@ -332,10 +333,10 @@ class Player():
         terminal_batch = np.array(terminal_batch) + 0
         # Target Networkで次の状態でのQ値を計算
         action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess) 
-        advice_target_q_values_batch = self.mean_target_q_values.eval(feed_dict={self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
+        mean_target_q_values_batch = self.mean_target_q_values.eval(feed_dict={self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
         # 教師信号を計算
         action_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
-        advice_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(advice_target_q_values_batch, axis=1)
+        mean_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(mean_target_q_values_batch, axis=1)
 
         # 勾配法による誤差最小化
         action_net_loss, _ = self.sess.run([self.action_net_loss, self.action_net_grad_update], feed_dict={
@@ -347,8 +348,8 @@ class Player():
         '''
         mean_net_loss, _ = self.sess.run([self.mean_net_loss, self.mean_net_grad_update], feed_dict={
             self.q_advice: np.float32(np.array(advice_batch)),
-            self.advice: mean_batch,
-            self.mean_teacher_signal: advice_net_teacher_signal_batch
+            self.mean: mean_batch,
+            self.mean_teacher_signal: mean_net_teacher_signal_batch
             }, options=self.run_options, run_metadata=self.run_metadata)
 
         self.action_net_total_loss += action_net_loss
