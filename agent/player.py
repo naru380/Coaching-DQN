@@ -351,13 +351,10 @@ class Player():
             self.mean: mean_batch,
             self.mean_teacher_signal: mean_net_teacher_signal_batch
             }, options=self.run_options, run_metadata=self.run_metadata)
-
-        self.action_net_total_loss += action_net_loss
-        self.mean_net_total_loss += mean_net_loss
         '''
         mean_net_loss, _ = self.sess.run([self.mean_net_loss, self.mean_net_grad_update], feed_dict={
             self.q_advice: np.float32(np.array(advice_batch)),
-            self.advice: mean_batch,
+            self.mean: mean_batch,
             self.mean_teacher_signal: action_net_teacher_signal_batch
             }, options=self.run_options, run_metadata=self.run_metadata)
 
