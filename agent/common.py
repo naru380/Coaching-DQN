@@ -35,7 +35,7 @@ TARGET_UPDATE_INTERVAL = 10000 # Target Networkの更新をする間隔
 ACTION_INTERVAL = STATE_LENGTH # フレームスキップ数
 TRAIN_INTERVAL = STATE_LENGTH # 学習を行なう間隔
 LEARNING_RATE = 0.00025 # RMSPropで使われる学習率
-MEAN_NET_LEARNING_RATE = 0.00025 # MEAN-NETWORKのRSMPRropで使われる学習率
+MEAN_NET_LEARNING_RATE = 0.005 # MEAN-NETWORKのRSMPRropで使われる学習率
 MOMENTUM = 0.25 # RSMPropで使われるモメンタム
 MIN_GRAD = 0.01 # RSMPropで使われる0で割るのを防ぐための値
 SAVE_INTERVAL = 300000  # Networkを保存する間隔
@@ -51,7 +51,7 @@ INITIAL_REPLAY_SIZE = 200 # 学習前に事前確保するReplay Memory数
 TARGET_UPDATE_INTERVAL = 500 # Target Networkの更新をする間隔
 #SAVE_INTERVAL = 300  # Networkを保存する間隔
 
-AQUIRED_LANGUAGE = True # デバッグ用(言語獲得済みの場合にアドバイスが有利に働くのかを確認する)
+AQUIRED_LANGUAGE = False # デバッグ用(言語獲得済みの場合にアドバイスが有利に働くのかを確認する)
 
 
 

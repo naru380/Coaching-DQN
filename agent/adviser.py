@@ -53,6 +53,8 @@ class Adviser():
 
 
     def load_network(self):
+        K.set_session(self.sess)
+
         checkpoint = tf.train.get_checkpoint_state(TRAINED_ADVISER_NETWORK_PATH)
 
         if checkpoint and checkpoint.model_checkpoint_path:
@@ -63,12 +65,15 @@ class Adviser():
 
 
     def get_action(self, state):
-        action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}))
+        K.set_session(self.sess)
+        action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))
         
         return action
 
 
     def get_advice(self, state, player_action):
+        K.set_session(self.sess)
+
         advice = self.repeated_advice
         
         if self.t % ACTION_INTERVAL == 0:

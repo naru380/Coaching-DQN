@@ -233,14 +233,14 @@ class Player():
 
         # 評価から報酬を得る
         if mean == AnotherMean.EVALUATE_GOOD.value:
-            evaluation_reward = reward + 1
+            evaluation_reward = reward + 0.25
         elif mean == AnotherMean.EVALUATE_BAD.value:
-            evaluation_reward = reward - 1
+            evaluation_reward = reward - 0.25
         else:
             pass
 
         # Replay Memoryに遷移を保存
-        self.replay_memory.append((state, action, advice, mean, reward, reward+evaluation_reward, next_state, terminal))
+        self.replay_memory.append((state, action, advice, mean, reward, evaluation_reward, next_state, terminal))
         
         # Replay Memoryが一定数を超えたら、古い遷移から削除
         if len(self.replay_memory) > NUM_REPLAY_MEMORY:
@@ -271,7 +271,7 @@ class Player():
                 f_parameters.close
 
         self.total_clipped_reward += reward
-        se;f.total_evaluation_reward += evaluation_reward
+        self.total_evaluation_reward += evaluation_reward
         self.action_net_total_q_max += np.max(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
         self.mean_net_total_q_max += np.max(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
         self.duration += 1
@@ -283,7 +283,7 @@ class Player():
                         float(self.duration),
                         self.total_non_clipped_reward,
                         self.total_clipped_reward,
-                        self.total_evaluated_reward,
+                        self.total_evaluation_reward,
                         self.action_net_total_q_max / float(self.duration),
                         self.action_net_total_loss / (float(self.duration) / float(TRAIN_INTERVAL)),
                         self.mean_net_total_q_max / float(self.duration),
@@ -362,10 +362,10 @@ class Player():
         terminal_batch = np.array(terminal_batch) + 0
         # Target Networkで次の状態でのQ値を計算
         action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess) 
-        mean_target_q_values_batch = self.mean_target_q_values.eval(feed_dict={self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
+        #mean_target_q_values_batch = self.mean_target_q_values.eval(feed_dict={self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
         # 教師信号を計算
         action_net_teacher_signal_batch = evaluated_reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
-        mean_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(mean_target_q_values_batch, axis=1)
+        #mean_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(mean_target_q_values_batch, axis=1)
 
         # 勾配法による誤差最小化
         action_net_loss, _ = self.sess.run([self.action_net_loss, self.action_net_grad_update], feed_dict={
@@ -377,7 +377,8 @@ class Player():
         mean_net_loss, _ = self.sess.run([self.mean_net_loss, self.mean_net_grad_update], feed_dict={
             self.q_advice: np.float32(np.array(advice_batch)),
             self.mean: mean_batch,
-            self.mean_teacher_signal: mean_net_teacher_signal_batch
+            #self.mean_teacher_signal: mean_net_teacher_signal_batch
+            self.mean_teacher_signal: action_net_teacher_signal_batch
             }, options=self.run_options, run_metadata=self.run_metadata)
 
         self.action_net_total_loss += action_net_loss
