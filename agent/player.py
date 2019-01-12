@@ -173,6 +173,32 @@ class Player():
         return np.stack(state, axis=0) # 複製した状態を連結して返す
 
 
+#    def get_mean(self, advice):
+#        mean = self.repeated_mean # 意味をリピート
+#
+#        K.set_session(self.sess)
+#        
+#        if AQUIRED_LANGUAGE == True:
+#            if self.t % ACTION_INTERVAL == 0:
+#                if np.argmax(advice) == AnotherMean.EVALUATE_GOOD.value:
+#                    mean = 0
+#                else:
+#                    mean = 1
+#                self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
+#        else:
+#            if self.t % ACTION_INTERVAL == 0:
+#                """
+#                if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
+#                    mean = random.randrange(self.num_advices)
+#                else:
+#                    mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
+#                """
+#                mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
+#                self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
+#
+#        return mean
+
+
     def get_mean(self, advice):
         mean = self.repeated_mean # 意味をリピート
 
@@ -187,13 +213,11 @@ class Player():
                 self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
         else:
             if self.t % ACTION_INTERVAL == 0:
-                """
                 if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
                     mean = random.randrange(self.num_advices)
                 else:
                     mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
-                """
-                mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
+                #mean = np.argmax(self.mean_q_values.eval(feed_dict={self.q_advice: [advice]}, session=self.sess))
                 self.repeated_mean = mean # フレームスキップ間にリピートする意味を格納
 
         return mean
