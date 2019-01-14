@@ -345,7 +345,7 @@ class Player():
             self.duration = 0
             self.total_clipped_reward = 0
             self.total_non_clipped_reward = 0
-            self.total_evalution_reward = 0
+            self.total_evaluation_reward = 0
             self.action_net_total_q_max = 0
             self.action_net_total_loss = 0
             self.mean_net_total_q_max = 0
