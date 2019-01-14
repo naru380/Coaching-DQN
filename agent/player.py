@@ -258,14 +258,14 @@ class Player():
 
         # 評価から報酬を得る
         if mean == AnotherMean.EVALUATE_GOOD.value:
-            evaluation_reward = reward + 1
+            evaluation_reward = reward + 0.01
         elif mean == AnotherMean.EVALUATE_BAD.value:
-            evaluation_reward = reward - 1
+            evaluation_reward = reward - 0.01
         else:
             pass
 
         # Replay Memoryに遷移を保存
-        self.replay_memory.append((state, action, advice, mean, reward, evaluation_reward, next_state, terminal))
+        self.replay_memory.append((state, action, advice, mean, reward, reward+evaluation_reward, next_state, terminal))
         
         # Replay Memoryが一定数を超えたら、古い遷移から削除
         if len(self.replay_memory) > NUM_REPLAY_MEMORY:
