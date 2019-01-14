@@ -133,7 +133,8 @@ class Player():
     
     def build_mean_network(self):
         advice_input = Input(shape=(self.num_advices, ))
-        x = Dense(self.num_advices, activation='sigmoid', kernel_initializer='uniform', name='Dense_1')(advice_input)
+        x = Dense(self.num_advices*2, activation='sigmoid', kernel_initializer='uniform', name='Dense_1')(advice_input)
+        x = Dense(self.num_advices, activation='sigmoid', kernel_initializer='uniform', name='Dense_2')(x)
         model = Model(inputs=[advice_input], outputs=x)
         advice = tf.placeholder(tf.float32, [None, self.num_advices], name='Advice')
         q_values = model(inputs=[advice])
@@ -257,9 +258,9 @@ class Player():
 
         # 評価から報酬を得る
         if mean == AnotherMean.EVALUATE_GOOD.value:
-            evaluation_reward = reward + 0.25
+            evaluation_reward = reward + 1
         elif mean == AnotherMean.EVALUATE_BAD.value:
-            evaluation_reward = reward - 0.25
+            evaluation_reward = reward - 1
         else:
             pass
 
@@ -344,7 +345,7 @@ class Player():
             self.duration = 0
             self.total_clipped_reward = 0
             self.total_non_clipped_reward = 0
-            self.total_evaluated_reward = 0
+            self.total_evalution_reward = 0
             self.action_net_total_q_max = 0
             self.action_net_total_loss = 0
             self.mean_net_total_q_max = 0
