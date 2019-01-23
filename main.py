@@ -183,9 +183,9 @@ def main():
             # ログを書き込む
             csvlist.extend([player.episode, player.t])
 
-            advice_currency = [advice_count[i, i] / np.sum(advice_count, axis=0)[i] if np.sum(advice_count, axis=0)[i] > 0 else 0.0 for i in range(advice_count.shape[0])]
+            advice_currency = [advice_count[i, i] / np.sum(advice_count, axis=1)[i] if np.sum(advice_count, axis=1)[i] > 0 else 0.0 for i in range(advice_count.shape[0])]
             csvlist.extend(advice_currency)
-            action_currency = [action_count[i, i] / np.sum(action_count, axis=0)[i] if np.sum(action_count, axis=0)[i] > 0 else 0.0 for i in range(action_count.shape[0])]
+            action_currency = [action_count[i, i] / np.sum(action_count, axis=1)[i] if np.sum(action_count, axis=1)[i] > 0 else 0.0 for i in range(action_count.shape[0])]
             csvlist.extend(action_currency)
             print("ADVICE_CURRENCY = {}".format(advice_currency))
             print("ACTION_CURRENCY = {}".format(action_currency))
