@@ -333,10 +333,11 @@ class Player():
         terminal_batch = np.array(terminal_batch) + 0
         # Target Networkで次の状態でのQ値を計算
         action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess) 
-        mean_target_q_values_batch = self.mean_target_q_values.eval(feed_dict={self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
+        #mean_target_q_values_batch = self.mean_target_q_values.eval(feed_dict={self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
         # 教師信号を計算
         action_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
-        mean_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(mean_target_q_values_batch, axis=1)
+        #mean_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(mean_target_q_values_batch, axis=1)
+        mean_net_teacher_signal_batch = reward_batch
 
         # 勾配法による誤差最小化
         action_net_loss, _ = self.sess.run([self.action_net_loss, self.action_net_grad_update], feed_dict={
@@ -355,7 +356,8 @@ class Player():
         mean_net_loss, _ = self.sess.run([self.mean_net_loss, self.mean_net_grad_update], feed_dict={
             self.q_advice: np.float32(np.array(advice_batch)),
             self.mean: mean_batch,
-            self.mean_teacher_signal: action_net_teacher_signal_batch
+            #self.mean_teacher_signal: action_net_teacher_signal_batch
+            self.mean_teacher_signal: mean_net_teacher_signal_batch
             }, options=self.run_options, run_metadata=self.run_metadata)
 
         self.action_net_total_loss += action_net_loss
