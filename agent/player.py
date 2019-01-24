@@ -393,10 +393,11 @@ class Player():
         #action_net_teacher_signal_batch = reward_batch + evaluation_reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
         action_net_tderr = reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1) - np.sum( np.identity(self.num_actions)[action_batch] *  self.action_q_values.eval(feed_dict={self.q_state: np.float32(np.array(state_batch) /255.0)}, session=self.sess), axis=1)
         action_net_advice_relief = np.sign(action_net_tderr) * evaluation_reward_batch
-        action_net_teacher_signal_batch = action_net_advice_relief * (1 + action_net_advice_relief) / 2 * ( (1 + np.array(evaluation_reward_batch)) / 2 + np.sum( np.identity(self.num_actions)[action_batch] * self.action_q_values.eval(feed_dict={self.q_state: np.float32(np.array(state_batch) / 255.0)}, session=self.sess), axis=1 ) ) - 1 / 2 * (action_net_advice_relief + 2) * (action_net_advice_relief - 1) * (reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1))
+        #action_net_teacher_signal_batch = action_net_advice_relief * (1 + action_net_advice_relief) / 2 * ( (1 + np.array(evaluation_reward_batch)) / 2 + np.sum( np.identity(self.num_actions)[action_batch] * self.action_q_values.eval(feed_dict={self.q_state: np.float32(np.array(state_batch) / 255.0)}, session=self.sess), axis=1 ) ) - 1 / 2 * (action_net_advice_relief + 2) * (action_net_advice_relief - 1) * (reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1))
+        action_net_teacher_signal_batch = action_net_advice_relief * (1 + action_net_advice_relief) / 2 * ( (1 + np.array(evaluation_reward_batch)) / 2 ) - 1 / 2 * (action_net_advice_relief + 2) * (action_net_advice_relief - 1) * (reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1))
         #mean_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(mean_target_q_values_batch, axis=1)
         mean_net_teacher_signal_batch = reward_batch
-
+        
         # 勾配法による誤差最小化
         action_net_loss, _ = self.sess.run([self.action_net_loss, self.action_net_grad_update], feed_dict={
             self.q_state: np.float32(np.array(state_batch) / 255.0),
