@@ -47,8 +47,8 @@ SAVE_SUMMARY_PATH = '/summary' # タスク実行時の学習データを保存�
 NUM_EPISODES_AT_TEST = 30  # テストプレイで実行するエピソード数
 
 
-INITIAL_REPLAY_SIZE = 200 # 学習前に事前確保するReplay Memory数
-TARGET_UPDATE_INTERVAL = 500 # Target Networkの更新をする間隔
+#INITIAL_REPLAY_SIZE = 200 # 学習前に事前確保するReplay Memory数
+#TARGET_UPDATE_INTERVAL = 500 # Target Networkの更新をする間隔
 #SAVE_INTERVAL = 300  # Networkを保存する間隔
 
 AQUIRED_LANGUAGE = False # デバッグ用(言語獲得済みの場合にアドバイスが有利に働くのかを確認する)

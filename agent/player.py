@@ -143,7 +143,7 @@ class Player():
         return action
 
 
-    def run(self, state, action, advice, reward, terminal, observation):
+    def run(self, state, action, advice, next_advice, reward, terminal, observation):
         # プレイヤー用のセッションに切り替える
         K.set_session(self.sess)
 
@@ -158,7 +158,7 @@ class Player():
         reward = np.sign(reward)
 
         # Replay Memoryに遷移を保存
-        self.replay_memory.append((state, action, advice, reward, next_state, terminal))
+        self.replay_memory.append((state, action, advice, next_advice, reward, next_state, terminal))
         
         # Replay Memoryが一定数を超えたら、古い遷移から削除
         if len(self.replay_memory) > NUM_REPLAY_MEMORY:
@@ -248,6 +248,7 @@ class Player():
         state_batch = []
         action_batch = []
         advice_batch = []
+        next_advice_batch = []
         reward_batch = []
         next_state_batch = []
         terminal_batch = []
@@ -260,16 +261,17 @@ class Player():
             state_batch.append(data[0])
             action_batch.append(data[1])
             advice_batch.append(data[2])
-            reward_batch.append(data[3])
-            next_state_batch.append(data[4])
-            terminal_batch.append(data[5])
+            next_advice_batch.append(data[3])
+            reward_batch.append(data[4])
+            next_state_batch.append(data[5])
+            terminal_batch.append(data[6])
 
         K.set_session(self.sess)
 
         # 終了判定をTrueは1に、Falseは0に変換
         terminal_batch = np.array(terminal_batch) + 0
        # Target Networkで次の状態でのQ値を計算
-        action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0), self.target_advice: np.float32(np.array(advice_batch))}, session=self.sess) 
+        action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0), self.target_advice: np.float32(np.array(next_advice_batch))}, session=self.sess) 
 
         # 教師信号を計算
         action_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
