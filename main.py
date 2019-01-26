@@ -94,6 +94,11 @@ def main():
         # ログファイルを保存するパスを指定する
         logdir_path = './logdir/{0:%Y%m%d%H%M%S}_{1}'.format(datetime.datetime.now(), ENV_NAME)
 
+        # Adviserクラスのインスタンスを作る
+        adviser = Adviser(num_actions=env.action_space.n)
+        # Playerクラスのインスタンスを作る
+        player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
+
         if not os.path.exists(logdir_path):
             os.makedirs(logdir_path)
 
@@ -101,25 +106,17 @@ def main():
         f = open(logdir_path + '/log.csv', 'w')
         writer = csv.writer(f, lineterminator='\n')
 
-        labels = ["EPISODE", "TIMESTEP"]
+        labels = ["EPISODE", "TIMESTEP", "EPSILON", "TOTAL_CLIPED_REWARD", "TOTAL_NON-CLIPED_REWARD", "AVERAGE_MAX_Q-VALUE", "AVERAGE_LOSS"]
         
-        advice_count = np.zeros((env.action_space.n, env.action_space.n))
         action_count = np.zeros((env.action_space.n, env.action_space.n))
+        advice_action_count = np.zeros((adviser.num_advices, adviser.num_advices, env.action_space.n))
 
-        labels.extend(["ADVICE_CURRENCY_" + str(i) for i in range(advice_count.shape[0])])
-        labels.extend(["ACTION_CURRENCY_" + str(i) for i in range(action_count.shape[0])])
-        labels.append("AVERAGE_ADVICE_CURRENCY")
-        labels.append("AVERAGE_ACTION_CURRENCY")
-        labels.extend(["ADVISER_ADVICE_" + str(i) + "-" + "PLAYER_MEAN_" + str(j) for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[1]))])
+        labels.extend(["ACTION_CONCORDANCE_RATE" + str(i) for i in range(action_count.shape[0])])
+        labels.append("AVERAGE_ACTION_CONCORDANCE_RATE")
         labels.extend(["ADVISER_ACTION_" + str(i) + "-" + "PLAYER_ACTION_" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
+        labels.extend(["ADVISER_ADVICE_" + str(i) + "_" + str(j) + "-" + "PLAYER_ACTION_" + str(k) for i, j, k in itertools.product(range(advice_action_count.shape[0]), range(advice_action_count.shape[1]), range(advice_action_count.shape[2]))])
 
         writer.writerow(labels)
-
-
-        # Adviserクラスのインスタンスを作る
-        adviser = Adviser(num_actions=env.action_space.n)
-        # Playerクラスのインスタンスを作る
-        player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
 
         # タスクを開始する
         for _ in range(NUM_EPISODES):
@@ -137,20 +134,20 @@ def main():
                 # ゲーム画面から初期状態を得る
                 state = player.get_initial_state(observation, last_observation)
 
+            # アドバイスの初期化
+            action = 0
+            # アドバイザの処理
+            with adviser.graph.as_default():
+                # ゲーム画面からアドバイスを決定する
+                advice = list(adviser.get_advice(state))
+
             while not terminal:
                 last_observation = observation
-                # アドバイザの処理
-                with adviser.graph.as_default():
-                    # ゲーム画面からアドバイスを決定する
-                    advice = list(adviser.get_advice(state))
-                    #print("advice = {}", advice)
 
                 # プレイヤの処理
                 with player.graph.as_default():
-                    # アドバイス(言語)から意味を推定する
-                    mean = player.get_mean(advice)
-#                   # 操作を決定する
-                    action = player.get_action(state, mean)
+                    # 操作を決定する
+                    action = player.get_action(state, advice)
                     #print("action = {}".format(action)))
 
                 # 環境に対するプレイヤの行動を決定し，次のステップ(画面)へ移行する
@@ -158,41 +155,40 @@ def main():
                 env.render() # 画面出力
                 processed_observation = preprocess(observation, last_observation)
 
-                _action, _mean = player.get_network_outputs(state, advice)
-                advice_count[np.argmax(advice), mean] += 1
-                action_count[np.argmax(advice), _action] += 1
-                #print("{}, {}, {}".format(np.argmax(advice), _mean, _action))
+                # アドバイザの処理
+                with adviser.graph.as_default():
+                    # ゲーム画面からアドバイスを決定する
+                    next_advice = list(adviser.get_advice(state))
+
+                    _action = adviser.get_action(state)
+
+                action_count[_action, action] += 1
+                advice_action_count[np.argmax(advice), np.argmax(next_advice), action] += 1
 
                 # プレイヤの処理
                 with player.graph.as_default():
                     # 内部状態を更新する
-                    state = player.run(state, action, advice, mean, reward, terminal, processed_observation)
+                    state = player.run(state, action, advice, next_advice, reward, terminal, processed_observation)
+                
+                advice = next_advice
 
-            #print("{}, \n{}".format(advice_count, action_count))
             # ログを書き込む
-            csvlist.extend([player.episode, player.t])
+            csvlist.extend([player.episode, player.t, player.epsilon, player.log_total_clipped_reward, player.log_total_non_clipped_reward, player.log_action_net_total_q_max / float(player.log_duration), player.log_action_net_total_loss / (float(player.log_duration) / float(TRAIN_INTERVAL))])
 
-            advice_currency = [advice_count[i, i] / np.sum(advice_count, axis=1)[i] if np.sum(advice_count, axis=1)[i] > 0 else 0.0 for i in range(advice_count.shape[0])]
-            csvlist.extend(advice_currency)
             action_currency = [action_count[i, i] / np.sum(action_count, axis=1)[i] if np.sum(action_count, axis=1)[i] > 0 else 0.0 for i in range(action_count.shape[0])]
             csvlist.extend(action_currency)
-            print("ADVICE_CURRENCY = {}".format(advice_currency))
-            print("ACTION_CURRENCY = {}".format(action_currency))
 
-            average_advice_currency = np.trace(advice_count) / np.sum(advice_count)
-            csvlist.append(average_advice_currency)
             average_action_currency = np.trace(action_count) / np.sum(action_count)
             csvlist.append(average_action_currency)
-            print("AVERAGE_ADVICE_CURRENCY = {}".format(average_advice_currency))
             print("AVERAGE_ACTION_CURRENCY = {}".format(average_action_currency))
 
-            csvlist.extend([advice_count[i, j] for i, j in itertools.product(range(advice_count.shape[0]), range(advice_count.shape[0]))])
-            csvlist.extend([action_count[i, j] for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[0]))])
+            csvlist.extend([action_count[i, j] for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
+            csvlist.extend([advice_action_count[i, j, k] for i, j, k in itertools.product(range(advice_action_count.shape[0]), range(advice_action_count.shape[1]), range(advice_action_count.shape[2]))])
 
             writer.writerow(csvlist)
 
-            advice_count = np.zeros((env.action_space.n, env.action_space.n))
             action_count = np.zeros((env.action_space.n, env.action_space.n))
+            advice_action_count = np.zeros((adviser.num_advices, adviser.num_advices, env.action_space.n))
 
             print('')
 
