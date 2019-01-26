@@ -5,7 +5,7 @@ from .common import *
 class Player():
     def __init__(self, num_actions, logdir_path):
         self.num_actions = num_actions # 行動数
-        self.num_advices = NUM_ANOTHER_MEAN # アドバイス数
+        self.num_advices = self.num_actions + NUM_ANOTHER_MEAN # アドバイス数
         self.epsilon = INITIAL_EPSILON # ε-greedy法のεの初期化
         self.epsilon_step = (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORATION_STEPS # εの減少率
         self.t = 0 # タイムステップ

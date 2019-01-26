@@ -5,7 +5,7 @@ from .common import *
 class Adviser():
     def __init__(self, num_actions):
         self.num_actions = num_actions # 行動数
-        self.num_advices = NUM_ANOTHER_MEAN # アドバイス数
+        self.num_advices = self.num_actions + NUM_ANOTHER_MEAN # アドバイス数
         self.t = 0 # タイムステップ
         self.repeated_advice = 0 # フレームスキップ間にリピートするアドバイスを保持するための変数
 
@@ -78,11 +78,14 @@ class Adviser():
         
         if self.t % ACTION_INTERVAL == 0:
             adviser_action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))
-
-            if adviser_action == player_action:
-                advice = AnotherMean.EVALUATE_GOOD.value
+            
+            if random.random() > 0.5:
+                advice = adviser_action + NUM_ANOTHER_MEAN
             else:
-                advice = AnotherMean.EVALUATE_BAD.value
+                if adviser_action == player_action:
+                    advice = AnotherMean.EVALUATE_GOOD.value
+                else:
+                    advice = AnotherMean.EVALUATE_BAD.value
 
             self.repeated_advice = advice
 
