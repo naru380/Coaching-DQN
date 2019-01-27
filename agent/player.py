@@ -79,9 +79,10 @@ class Player():
         x = Flatten(name='Flatten')(x)
         x = Dense(512, activation='relu', kernel_initializer='normal', name='Dense_1')(x)
 
-        y = Dense(1, kernel_initializer='normal', name='Dense_2')(x)
+        #y = Dense(1, kernel_initializer='normal', name='Dense_2')(advice_input)
 
-        x = concatenate([x, y])
+        #x = concatenate([x, y])
+        x = concatenate([x, advice_input])
         x = Dense(self.num_actions, kernel_initializer='normal', name='Dense_3')(x)
         
         model = Model(inputs=[display_input, advice_input], outputs=x)
