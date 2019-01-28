@@ -165,7 +165,7 @@ class Player():
         if len(self.replay_memory) > NUM_REPLAY_MEMORY:
             self.replay_memory.popleft()
 
-        if self.t >= INITIAL_REPLAY_SIZE*1000:
+        if self.t >= INITIAL_REPLAY_SIZE:
             # Q Networkの学習
             if self.t % TRAIN_INTERVAL == 0:
                 self.train_network()
