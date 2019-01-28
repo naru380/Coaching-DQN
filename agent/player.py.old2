@@ -9,17 +9,6 @@ class Player():
         self.epsilon = INITIAL_EPSILON # ε-greedy法のεの初期化
         self.epsilon_step = (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORATION_STEPS # εの減少率
         self.t = 0 # タイムステップ
-        self.the_ep_t = 0
-        self.the_ep_advices = []
-        self.advices_influence = [[] for _ in range(self.num_advices)]
-        #self.advices_influence = np.empty(self.num_advices)
-        self.influence_attenuation = 0.99
-        self.evaluation_probility = np.empty((2, self.num_advices))
-        self.delay = 50
-        self.interval = 100
-        self.good_influences = [0]*self.interval
-        self.bad_influences = [0]*self.interval
-        self.the_ep_reward_transition = []
         self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
         
         # Replay Memoryの構築
@@ -43,12 +32,12 @@ class Player():
                 with tf.variable_scope("Action_Network"):
                     with tf.variable_scope("Q_Network"):
                         # Q Networkの構築
-                        self.q_state, self.action_q_values, action_q_network = self.build_action_network()
+                        self.q_state, self.advice, self.action_q_values, action_q_network = self.build_action_network()
                         action_q_network_weights = action_q_network.trainable_weights
 
                     with tf.variable_scope("Target_Network"):
                         # Target Networkの構築
-                        self.target_state, self.action_target_q_values, action_target_network = self.build_action_network()
+                        self.target_state, self.target_advice, self.action_target_q_values, action_target_network = self.build_action_network()
                         action_target_network_weights = action_target_network.trainable_weights
 
                     # 定期的にTarget Networkを更新するための処理の構築
@@ -82,21 +71,28 @@ class Player():
     def build_action_network(self):
         # ~/.keras/keras.jsonのimage_data_formatを'channel_last'から'channel_first'に変更
         display_input = Input(shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT), dtype=tf.float32)
+        advice_input = Input(shape=(self.num_advices, ), dtype=tf.float32)
 
         x = Conv2D(32, (8, 8), strides=(4, 4), activation='relu', kernel_initializer='normal', name='Conv2D_1')(display_input)
         x = Conv2D(64, (4, 4), strides=(2, 2), activation='relu', kernel_initializer='normal', name='Conv2D_2')(x)
         x = Conv2D(64, (3, 3), strides=(1, 1), activation='relu', kernel_initializer='normal', name='Conv2D_3')(x)
         x = Flatten(name='Flatten')(x)
         x = Dense(512, activation='relu', kernel_initializer='normal', name='Dense_1')(x)
-        x = Dense(self.num_actions, kernel_initializer='normal', name='Dense_2')(x)
+
+        #y = Dense(1, kernel_initializer='normal', name='Dense_2')(advice_input)
+
+        #x = concatenate([x, y])
+        x = concatenate([x, advice_input])
+        x = Dense(self.num_actions, kernel_initializer='normal', name='Dense_3')(x)
         
-        model = Model(inputs=[display_input], outputs=x)
+        model = Model(inputs=[display_input, advice_input], outputs=x)
 
         state = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT], name='State')
+        advice = tf.placeholder(tf.float32, [None, self.num_advices], name='Advice')
 
-        q_values = model(inputs=[state])
+        q_values = model(inputs=[state, advice])
 
-        return state, q_values, model
+        return state, advice, q_values, model
 
 
     def build_action_net_training_op(self, q_network_weights):
@@ -129,7 +125,7 @@ class Player():
         return np.stack(state, axis=0) # 複製した状態を連結して返す
 
 
-    def get_action(self, state):
+    def get_action(self, state, advice):
         action = self.repeated_action # 行動をリピート
 
         K.set_session(self.sess)
@@ -138,7 +134,7 @@ class Player():
             if self.epsilon >= random.random() or self.t < INITIAL_REPLAY_SIZE:
                 action = random.randrange(self.num_actions)
             else:
-                action = np.argmax(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
+                action = np.argmax(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)], self.advice: [advice]}, session=self.sess))
             self.repeated_action = action # フレームスキップ間にリピートする行動を格納
 
         # εを線形に減少させる
@@ -148,49 +144,14 @@ class Player():
         return action
 
 
-    def run(self, state, action, advice, reward, terminal, observation):
-        #self.advices_influence[np.argmax(advice)].append(np.sign(reward))
-        #self.advices_influence[np.argmax(advice)].append(0)
-        self.the_ep_reward_transition.append(reward)
-        self.the_ep_advices.append(np.argmax(advice))
-        """
-        for t in self.the_ep_t:
-            self.advices_influence = 
-        """
-        """
-        if np.argmax(advice) == 0:
-            print(self.the_ep_t/4, 'good')
-        """
-        if reward > 0:
-            #print(self.the_ep_t/4, 'reward')
-            """
-            delay = 50
-            interval =40
-            advices_transition = self.the_ep_advices[self.the_ep_t-delay-interval:self.the_ep_t-delay+interval]
-            print(advices_transition)
-            print('Good is {}%'.format(1-sum(advices_transition)/len(advices_transition)))
-            print('Bad is {}%'.format(sum(advices_transition)/len(advices_transition)))
-            """
-            """
-            seq = self.the_ep_advices[self.the_ep_t-self.interval:self.the_ep_t]
-            good_wrk = np.array(self.good_influences) + np.abs(np.array(seq) - np.array([1]*self.interval))
-            bad_wrk = np.array(self.bad_influences) + np.array(seq)
-            self.good_influences = good_wrk.tolist()
-            self.bad_influences = bad_wrk.tolist()
-            print("Good:{}".format(self.good_influences))
-            print("Bad:{}".format(self.bad_influences))
-            print("diff:{}".format(np.abs(good_wrk - bad_wrk).tolist()))
-            """
-            pass
-        #print(self.the_ep_t)
-        #print(self.the_ep_advices)
-        #print([sum(self.advices_influence[advice]) for advice in range(self.num_advices)])
-
+    def run(self, state, action, advice, next_advice, reward, terminal, observation):
         # プレイヤー用のセッションに切り替える
         K.set_session(self.sess)
 
         # 次の状態を作成
         next_state = np.append(state[1:, :, :], observation, axis=0)
+        #print(next_state.shape)
+        #print(state[0:, :, :].shape)
 
         self.total_non_clipped_reward += reward
 
@@ -198,13 +159,13 @@ class Player():
         reward = np.sign(reward)
 
         # Replay Memoryに遷移を保存
-        self.replay_memory.append((state, action, advice, reward, next_state, terminal))
+        self.replay_memory.append((state, action, advice, next_advice, reward, next_state, terminal))
         
         # Replay Memoryが一定数を超えたら、古い遷移から削除
         if len(self.replay_memory) > NUM_REPLAY_MEMORY:
             self.replay_memory.popleft()
 
-        if self.t >= INITIAL_REPLAY_SIZE*1000:
+        if self.t >= INITIAL_REPLAY_SIZE:
             # Q Networkの学習
             if self.t % TRAIN_INTERVAL == 0:
                 self.train_network()
@@ -227,7 +188,7 @@ class Player():
                 f_parameters.close
 
         self.total_clipped_reward += reward
-        self.action_net_total_q_max += np.max(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
+        self.action_net_total_q_max += np.max(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)], self.advice: [advice]}, session=self.sess))
         self.duration += 1
 
         if terminal:
@@ -272,36 +233,6 @@ class Player():
             self.log_action_net_total_q_max = self.action_net_total_q_max
             self.log_action_net_total_loss = self.action_net_total_loss
 
-            """
-            sum_advise_influence = [sum(self.advices_influence[advice]) for advice in range(self.num_advices)]
-            if sum_advise_influence.index(max(sum_advise_influence)) != sum_advise_influence.index(min(sum_advise_influence)):
-                self.evaluation_probility[0][sum_advise_influence.index(max(sum_advise_influence))] += 1
-                self.evaluation_probility[1][sum_advise_influence.index(min(sum_advise_influence))] += 1
-            else:
-                pass
-            print(self.evaluation_probility)
-            """
-
-            for i, j in enumerate(self.the_ep_advices):
-                cumulative_reward = 0
-                for k, l in enumerate(self.the_ep_reward_transition[i:]):
-                    cumulative_reward += l*self.influence_attenuation**k
-                self.advices_influence[j].append(cumulative_reward)
-
-            average_advices_influence = [sum(self.advices_influence[i])/len(self.advices_influence[i]) for i in range(self.num_advices)]
-            print(average_advices_influence)
-            
-            if len([i for i, x in enumerate(average_advices_influence) if x == max(average_advices_influence)]) == 1:
-                self.evaluation_probility[0][average_advices_influence.index(max(average_advices_influence))] += 1
-            if len([i for i, x in enumerate(average_advices_influence) if x == min(average_advices_influence)]) == 1:
-                self.evaluation_probility[1][average_advices_influence.index(min(average_advices_influence))] += 1
-            print([[x/sum(self.evaluation_probility[i]) for x in self.evaluation_probility[i]] for i in range(2)])
-
-            self.the_ep_t = -1
-            self.advices_influence = [[] for _ in range(self.num_advices)]
-            self.the_ep_advices = []
-            self.the_ep_reward_transition = []
-
             self.duration = 0
             self.total_clipped_reward = 0
             self.total_non_clipped_reward = 0
@@ -311,14 +242,14 @@ class Player():
 
         self.t += 1 # タイムステップ
 
-        self.the_ep_t += 1
-
         return next_state
 
 
     def train_network(self):
         state_batch = []
         action_batch = []
+        advice_batch = []
+        next_advice_batch = []
         reward_batch = []
         next_state_batch = []
         terminal_batch = []
@@ -330,16 +261,18 @@ class Player():
         for data in minibatch:
             state_batch.append(data[0])
             action_batch.append(data[1])
-            reward_batch.append(data[3])
-            next_state_batch.append(data[4])
-            terminal_batch.append(data[5])
+            advice_batch.append(data[2])
+            next_advice_batch.append(data[3])
+            reward_batch.append(data[4])
+            next_state_batch.append(data[5])
+            terminal_batch.append(data[6])
 
         K.set_session(self.sess)
 
         # 終了判定をTrueは1に、Falseは0に変換
         terminal_batch = np.array(terminal_batch) + 0
        # Target Networkで次の状態でのQ値を計算
-        action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess) 
+        action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0), self.target_advice: np.float32(np.array(next_advice_batch))}, session=self.sess) 
 
         # 教師信号を計算
         action_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
@@ -347,6 +280,7 @@ class Player():
         # 勾配法による誤差最小化
         action_net_loss, _ = self.sess.run([self.action_net_loss, self.action_net_grad_update], feed_dict={
             self.q_state: np.float32(np.array(state_batch) / 255.0),
+            self.advice: np.float32(np.array(advice_batch)),
             self.action: action_batch,
             self.action_teacher_signal: action_net_teacher_signal_batch
             }, options=self.run_options, run_metadata=self.run_metadata)
@@ -388,9 +322,9 @@ class Player():
         return summary_placeholders, update_ops, summary_op
 
     
-    def get_network_outputs(self, state):
+    def get_network_outputs(self, state, advice):
         K.set_session(self.sess)
 
-        action = np.argmax(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)]}, session=self.sess))
+        action = np.argmax(self.action_q_values.eval(feed_dict={self.q_state: [np.float32(state / 255.0)], self.advice: [advice]}, session=self.sess))
 
         return action

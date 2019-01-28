@@ -99,9 +99,11 @@ def main():
         # Playerクラスのインスタンスを作る
         player = Player(num_actions=env.action_space.n, logdir_path=logdir_path)
 
+
         if not os.path.exists(logdir_path):
             os.makedirs(logdir_path)
 
+        '''
         # ログを書き込むファイルを開く
         f = open(logdir_path + '/log.csv', 'w')
         writer = csv.writer(f, lineterminator='\n')
@@ -117,6 +119,7 @@ def main():
         labels.extend(["ADVISER_ADVICE_" + str(i) + "_" + str(j) + "-" + "PLAYER_ACTION_" + str(k) for i, j, k in itertools.product(range(advice_action_count.shape[0]), range(advice_action_count.shape[1]), range(advice_action_count.shape[2]))])
 
         writer.writerow(labels)
+        '''
 
         # タスクを開始する
         for _ in range(NUM_EPISODES):
@@ -135,29 +138,18 @@ def main():
                state = player.get_initial_state(observation, last_observation)
 
             # アドバイスの初期化
-            #advice = np.identity(player.num_advices)[-1]
-            #advice = np.zeros(player.num_advices)
-            action = 0 #np.identity(player.num_advices)[0]
             # アドバイザの処理
             with adviser.graph.as_default():
                 # ゲーム画面からアドバイスを決定する
-                #advice = list(adviser.get_advice(state[0:4,:,:], action))
-                advice = list(adviser.get_advice(state, action))
+                advice = list(adviser.get_advice(state, 0))
 
             while not terminal:
                 last_observation = observation
-                """
-                # アドバイザの処理
-                with adviser.graph.as_default():
-                    # ゲーム画面からアドバイスを決定する
-                    advice = list(adviser.get_advice(state))
-                    #print("advice = {}", advice)
-                """
 
                 # プレイヤの処理
                 with player.graph.as_default():
 #                   # 操作を決定する
-                    action = player.get_action(state, advice)
+                    action = player.get_action(state)
                     #print("action = {}".format(action)))
 
                 # 環境に対するプレイヤの行動を決定し，次のステップ(画面)へ移行する
@@ -168,24 +160,25 @@ def main():
                 # アドバイザの処理
                 with adviser.graph.as_default():
                     # ゲーム画面からアドバイスを決定する
-                    #advice = list(adviser.get_advice(state[0:4,:,:], action))
                     next_advice = list(adviser.get_advice(state, action))
 
                 # プレイヤの処理
                 with adviser.graph.as_default():
-                    #_action = adviser.get_action(state[0:4,:,:])
                     _action = adviser.get_action(state)
 
+                '''
                 action_count[_action, action] += 1
-                advice_action_count[np.argmax(advice), np.argmax(next_advice), action] += 1
+                advice_action_count[np.argmax(advice), action] += 1
+                '''
 
                 # プレイヤの処理
                 with player.graph.as_default():
                     # 内部状態を更新する
-                    state = player.run(state, action, advice, next_advice, reward, terminal, processed_observation)
+                    state = player.run(state, action, advice, reward, terminal, processed_observation)
 
                 advice = next_advice
 
+            '''
             # ログを書き込む
             csvlist.extend([player.episode, player.t, player.epsilon, player.log_total_clipped_reward, player.log_total_non_clipped_reward, player.log_action_net_total_q_max / float(player.log_duration), player.log_action_net_total_loss / (float(player.log_duration) / float(TRAIN_INTERVAL))])
 
@@ -205,6 +198,7 @@ def main():
             advice_action_count = np.zeros((adviser.num_advices, adviser.num_advices, env.action_space.n))
 
             print('')
+            '''
 
     else:
         print("Invalid MODE is selected.")
