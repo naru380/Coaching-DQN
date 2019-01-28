@@ -12,14 +12,9 @@ class Player():
         self.the_ep_t = 0
         self.the_ep_advices = []
         self.advices_influence = [[] for _ in range(self.num_advices)]
-        #self.advices_influence = np.empty(self.num_advices)
+        self.the_ep_reward_transition = []
         self.influence_attenuation = 0.99
         self.evaluation_probility = np.empty((2, self.num_advices))
-        #self.delay = 50
-        #self.interval = 100
-        #self.good_influences = [0]*self.interval
-        #self.bad_influences = [0]*self.interval
-        self.the_ep_reward_transition = []
         self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
         
         # Replay Memoryの構築
@@ -149,42 +144,8 @@ class Player():
 
 
     def run(self, state, action, advice, next_advice, reward, terminal, observation):
-        #self.advices_influence[np.argmax(advice)].append(np.sign(reward))
-        #self.advices_influence[np.argmax(advice)].append(0)
         self.the_ep_reward_transition.append(reward)
         self.the_ep_advices.append(np.argmax(next_advice))
-        """
-        for t in self.the_ep_t:
-            self.advices_influence = 
-        """
-        """
-        if np.argmax(advice) == 0:
-            print(self.the_ep_t/4, 'good')
-        """
-        if reward > 0:
-            #print(self.the_ep_t/4, 'reward')
-            """
-            delay = 50
-            interval =40
-            advices_transition = self.the_ep_advices[self.the_ep_t-delay-interval:self.the_ep_t-delay+interval]
-            print(advices_transition)
-            print('Good is {}%'.format(1-sum(advices_transition)/len(advices_transition)))
-            print('Bad is {}%'.format(sum(advices_transition)/len(advices_transition)))
-            """
-            """
-            seq = self.the_ep_advices[self.the_ep_t-self.interval:self.the_ep_t]
-            good_wrk = np.array(self.good_influences) + np.abs(np.array(seq) - np.array([1]*self.interval))
-            bad_wrk = np.array(self.bad_influences) + np.array(seq)
-            self.good_influences = good_wrk.tolist()
-            self.bad_influences = bad_wrk.tolist()
-            print("Good:{}".format(self.good_influences))
-            print("Bad:{}".format(self.bad_influences))
-            print("diff:{}".format(np.abs(good_wrk - bad_wrk).tolist()))
-            """
-            pass
-        #print(self.the_ep_t)
-        #print(self.the_ep_advices)
-        #print([sum(self.advices_influence[advice]) for advice in range(self.num_advices)])
 
         # プレイヤー用のセッションに切り替える
         K.set_session(self.sess)
@@ -271,16 +232,6 @@ class Player():
             self.log_total_non_clipped_reward = self.total_non_clipped_reward
             self.log_action_net_total_q_max = self.action_net_total_q_max
             self.log_action_net_total_loss = self.action_net_total_loss
-
-            """
-            sum_advise_influence = [sum(self.advices_influence[advice]) for advice in range(self.num_advices)]
-            if sum_advise_influence.index(max(sum_advise_influence)) != sum_advise_influence.index(min(sum_advise_influence)):
-                self.evaluation_probility[0][sum_advise_influence.index(max(sum_advise_influence))] += 1
-                self.evaluation_probility[1][sum_advise_influence.index(min(sum_advise_influence))] += 1
-            else:
-                pass
-            print(self.evaluation_probility)
-            """
 
             for i, j in enumerate(self.the_ep_advices):
                 cumulative_reward = 0

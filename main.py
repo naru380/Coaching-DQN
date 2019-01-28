@@ -178,7 +178,7 @@ def main():
             csvlist.extend([player.episode, player.t, player.epsilon, player.log_total_clipped_reward, player.log_total_non_clipped_reward, player.log_action_net_total_q_max / float(player.log_duration), player.log_action_net_total_loss / (float(player.log_duration) / float(TRAIN_INTERVAL))])
 
             #csvlist.extend([i for j in range(adviser.num_advices) for i in player.evaluation_probility[j]])
-            csvlist.extend([x/sum(self.evaluation_probility[i]) if sum(self.evaluation_probility[i])!=1 else 0 for x in self.evaluation_probility[i] for i in range(2)])
+            csvlist.extend(np.reshape(np.array([[x/sum(player.evaluation_probility[i]) if sum(player.evaluation_probility[i])!=1 else 0 for x in player.evaluation_probility[i]] for i in range(2)]), 2*player.num_advices).tolist())
 
             action_currency = [action_count[i, i] / np.sum(action_count, axis=1)[i] if np.sum(action_count, axis=1)[i] > 0 else 0.0 for i in range(action_count.shape[0])]
             csvlist.extend(action_currency)
