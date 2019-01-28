@@ -179,6 +179,7 @@ def main():
 
             action_currency = [action_count[i, i] / np.sum(action_count, axis=1)[i] if np.sum(action_count, axis=1)[i] > 0 else 0.0 for i in range(action_count.shape[0])]
             csvlist.extend(action_currency)
+            print("ACTION_CURRENCY = {}".format(action_currency))
 
             average_action_currency = np.trace(action_count) / np.sum(action_count)
             csvlist.append(average_action_currency)
