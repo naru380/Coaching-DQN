@@ -148,11 +148,11 @@ class Player():
         return action
 
 
-    def run(self, state, action, advice, reward, terminal, observation):
+    def run(self, state, action, advice, next_advice, reward, terminal, observation):
         #self.advices_influence[np.argmax(advice)].append(np.sign(reward))
         #self.advices_influence[np.argmax(advice)].append(0)
         self.the_ep_reward_transition.append(reward)
-        self.the_ep_advices.append(np.argmax(advice))
+        self.the_ep_advices.append(np.argmax(next_advice))
         """
         for t in self.the_ep_t:
             self.advices_influence = 
@@ -198,7 +198,7 @@ class Player():
         reward = np.sign(reward)
 
         # Replay Memoryに遷移を保存
-        self.replay_memory.append((state, action, advice, reward, next_state, terminal))
+        self.replay_memory.append((state, action, advice, next_advice, reward, next_state, terminal))
         
         # Replay Memoryが一定数を超えたら、古い遷移から削除
         if len(self.replay_memory) > NUM_REPLAY_MEMORY:
@@ -295,7 +295,8 @@ class Player():
                 self.evaluation_probility[0][average_advices_influence.index(max(average_advices_influence))] += 1
             if len([i for i, x in enumerate(average_advices_influence) if x == min(average_advices_influence)]) == 1:
                 self.evaluation_probility[1][average_advices_influence.index(min(average_advices_influence))] += 1
-            print([[x/sum(self.evaluation_probility[i]) if sum(self.evaluation_probility[i])!=0 else 0 for x in self.evaluation_probility[i]] for i in range(2)])
+            #print(self.evaluation_probility)
+            print("EVAL_PROB: {}".format( [[x/sum(self.evaluation_probility[i]) if sum(self.evaluation_probility[i])!=1 else 0 for x in self.evaluation_probility[i]] for i in range(2)] ))
 
             self.the_ep_t = -1
             self.advices_influence = [[] for _ in range(self.num_advices)]
@@ -320,6 +321,7 @@ class Player():
         action_batch = []
         reward_batch = []
         advice_batch = []
+        next_advice_batch = []
         next_state_batch = []
         terminal_batch = []
         action_net_teacher_signal_batch = []
@@ -331,19 +333,20 @@ class Player():
             state_batch.append(data[0])
             action_batch.append(data[1])
             advice_batch.append(data[2])
-            reward_batch.append(data[3])
-            next_state_batch.append(data[4])
-            terminal_batch.append(data[5])
+            next_advice_batch.append(data[3])
+            reward_batch.append(data[4])
+            next_state_batch.append(data[5])
+            terminal_batch.append(data[6])
 
         K.set_session(self.sess)
         
         advice_reward_batch = [0]*len(reward)
         if len([i for i, x in enumerate(self.evaluation_probility[0]) if x == max(self.evaluation_probility[0])]) == 1:
-            for i, x in enumerate(advice_batch):
+            for i, x in enumerate(next_advice_batch):
                 if self.evaluation_probility[0].index(max(self.evaluation_probility[0])) == x:
                     advice_reward_batch[i] += 1
         if len([i for i, x in enumerate(self.evaluation_probility[1]) if x == max(self.evaluation_probility[1])]) == 1:
-            for i, x in enumerate(advice_batch):
+            for i, x in enumerate(next_advice_batch):
                 if self.evaluation_probility[1].index(min(self.evaluation_probility[1])) == x:
                     advice_reward_batch[i] -= 1
 
