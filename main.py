@@ -109,12 +109,13 @@ def main():
         labels = ["EPISODE", "TIMESTEP", "EPSILON", "TOTAL_CLIPED_REWARD", "TOTAL_NON-CLIPED_REWARD", "AVERAGE_MAX_Q-VALUE", "AVERAGE_LOSS"]
         
         action_count = np.zeros((env.action_space.n, env.action_space.n))
-        advice_action_count = np.zeros((adviser.num_advices, adviser.num_advices, env.action_space.n))
+        #advice_action_count = np.zeros((adviser.num_advices, adviser.num_advices, env.action_space.n))
+        advice_action_count = np.zeros((adviser.num_advices, env.action_space.n))
 
         labels.extend(["ACTION_CONCORDANCE_RATE" + str(i) for i in range(action_count.shape[0])])
         labels.append("AVERAGE_ACTION_CONCORDANCE_RATE")
+        #labels.extend(["ADVISER_ADVICE_" + str(i) + "_" + str(j) + "-" + "PLAYER_ACTION_" + str(k) for i, j, k in itertools.product(range(advice_action_count.shape[0]), range(advice_action_count.shape[1]), range(advice_action_count.shape[2]))])
         labels.extend(["ADVISER_ACTION_" + str(i) + "-" + "PLAYER_ACTION_" + str(j) for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
-        labels.extend(["ADVISER_ADVICE_" + str(i) + "_" + str(j) + "-" + "PLAYER_ACTION_" + str(k) for i, j, k in itertools.product(range(advice_action_count.shape[0]), range(advice_action_count.shape[1]), range(advice_action_count.shape[2]))])
 
         writer.writerow(labels)
 
@@ -163,7 +164,8 @@ def main():
                     _action = adviser.get_action(state)
 
                 action_count[_action, action] += 1
-                advice_action_count[np.argmax(advice), np.argmax(next_advice), action] += 1
+                #advice_action_count[np.argmax(advice), np.argmax(next_advice), action] += 1
+                advice_action_count[np.argmax(advice), action] += 1
 
                 # プレイヤの処理
                 with player.graph.as_default():
@@ -183,12 +185,14 @@ def main():
             print("AVERAGE_ACTION_CURRENCY = {}".format(average_action_currency))
 
             csvlist.extend([action_count[i, j] for i, j in itertools.product(range(action_count.shape[0]), range(action_count.shape[1]))])
-            csvlist.extend([advice_action_count[i, j, k] for i, j, k in itertools.product(range(advice_action_count.shape[0]), range(advice_action_count.shape[1]), range(advice_action_count.shape[2]))])
+            #csvlist.extend([advice_action_count[i, j, k] for i, j, k in itertools.product(range(advice_action_count.shape[0]), range(advice_action_count.shape[1]), range(advice_action_count.shape[2]))])
+            csvlist.extend([advice_action_count[i, j] for i, j in itertools.product(range(advice_action_count.shape[0]), range(advice_action_count.shape[1]))])
 
             writer.writerow(csvlist)
 
             action_count = np.zeros((env.action_space.n, env.action_space.n))
-            advice_action_count = np.zeros((adviser.num_advices, adviser.num_advices, env.action_space.n))
+            #advice_action_count = np.zeros((adviser.num_advices, adviser.num_advices, env.action_space.n))
+            advice_action_count = np.zeros((adviser.num_advices, env.action_space.n))
 
             print('')
 
