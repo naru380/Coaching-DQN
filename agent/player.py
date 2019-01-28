@@ -15,10 +15,10 @@ class Player():
         #self.advices_influence = np.empty(self.num_advices)
         self.influence_attenuation = 0.99
         self.evaluation_probility = np.empty((2, self.num_advices))
-        self.delay = 50
-        self.interval = 100
-        self.good_influences = [0]*self.interval
-        self.bad_influences = [0]*self.interval
+        #self.delay = 50
+        #self.interval = 100
+        #self.good_influences = [0]*self.interval
+        #self.bad_influences = [0]*self.interval
         self.the_ep_reward_transition = []
         self.repeated_action = 0 # フレームスキップ間にリピートする行動を保持するための変数
         
@@ -288,14 +288,14 @@ class Player():
                     cumulative_reward += l*self.influence_attenuation**k
                 self.advices_influence[j].append(cumulative_reward)
 
-            average_advices_influence = [sum(self.advices_influence[i])/len(self.advices_influence[i]) for i in range(self.num_advices)]
-            print(average_advices_influence)
+            average_advices_influence = [sum(self.advices_influence[i])/len(self.advices_influence[i]) if len(self.advices_influence[i])!=0 else 0 for i in range(self.num_advices)]
+            #print(average_advices_influence)
             
             if len([i for i, x in enumerate(average_advices_influence) if x == max(average_advices_influence)]) == 1:
                 self.evaluation_probility[0][average_advices_influence.index(max(average_advices_influence))] += 1
             if len([i for i, x in enumerate(average_advices_influence) if x == min(average_advices_influence)]) == 1:
                 self.evaluation_probility[1][average_advices_influence.index(min(average_advices_influence))] += 1
-            print([[x/sum(self.evaluation_probility[i]) for x in self.evaluation_probility[i]] for i in range(2)])
+            print([[x/sum(self.evaluation_probility[i]) if sum(self.evaluation_probility[i])!=0 else 0 for x in self.evaluation_probility[i]] for i in range(2)])
 
             self.the_ep_t = -1
             self.advices_influence = [[] for _ in range(self.num_advices)]
@@ -312,7 +312,6 @@ class Player():
         self.t += 1 # タイムステップ
 
         self.the_ep_t += 1
-
         return next_state
 
 
@@ -320,6 +319,7 @@ class Player():
         state_batch = []
         action_batch = []
         reward_batch = []
+        advice_batch = []
         next_state_batch = []
         terminal_batch = []
         action_net_teacher_signal_batch = []
@@ -330,11 +330,22 @@ class Player():
         for data in minibatch:
             state_batch.append(data[0])
             action_batch.append(data[1])
+            advice_batch.append(data[2])
             reward_batch.append(data[3])
             next_state_batch.append(data[4])
             terminal_batch.append(data[5])
 
         K.set_session(self.sess)
+        
+        advice_reward_batch = [0]*len(reward)
+        if len([i for i, x in enumerate(self.evaluation_probility[0]) if x == max(self.evaluation_probility[0])]) == 1:
+            for i, x in enumerate(advice_batch):
+                if self.evaluation_probility[0].index(max(self.evaluation_probility[0])) == x:
+                    advice_reward_batch[i] += 1
+        if len([i for i, x in enumerate(self.evaluation_probility[1]) if x == max(self.evaluation_probility[1])]) == 1:
+            for i, x in enumerate(advice_batch):
+                if self.evaluation_probility[1].index(min(self.evaluation_probility[1])) == x:
+                    advice_reward_batch[i] -= 1
 
         # 終了判定をTrueは1に、Falseは0に変換
         terminal_batch = np.array(terminal_batch) + 0
@@ -342,7 +353,7 @@ class Player():
         action_target_q_values_batch = self.action_target_q_values.eval(feed_dict={self.target_state: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess) 
 
         # 教師信号を計算
-        action_net_teacher_signal_batch = reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
+        action_net_teacher_signal_batch = reward_batch + advice_reward_batch + (1 - terminal_batch) * GAMMA * np.max(action_target_q_values_batch, axis=1)
         
         # 勾配法による誤差最小化
         action_net_loss, _ = self.sess.run([self.action_net_loss, self.action_net_grad_update], feed_dict={
