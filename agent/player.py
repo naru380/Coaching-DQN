@@ -297,12 +297,12 @@ class Player():
         
         advice_reward_batch = [0]*len(reward_batch)
         if len([i for i, x in enumerate(self.evaluation_probility[0]) if x == max(self.evaluation_probility[0])]) == 1:
-            for i, x in enumerate(next_advice_batch):
+            for i, x in enumerate(np.argmax(next_advice_batch, axis=1)):
                 if self.evaluation_probility[0].tolist().index(max(self.evaluation_probility[0])) == x:
                     advice_reward_batch[i] += 1
         if len([i for i, x in enumerate(self.evaluation_probility[1]) if x == max(self.evaluation_probility[1])]) == 1:
-            for i, x in enumerate(next_advice_batch):
-                if self.evaluation_probility[1].tolist().index(min(self.evaluation_probility[1])) == x:
+            for i, x in enumerate(np.argmax(next_advice_batch, axis=1)):
+                if self.evaluation_probility[1].tolist().index(max(self.evaluation_probility[1])) == x:
                     advice_reward_batch[i] -= 1
 
         # 終了判定をTrueは1に、Falseは0に変換
