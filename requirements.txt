@@ -43,7 +43,7 @@ Pygments==2.2.0
 pyparsing==2.2.2
 python-dateutil==2.7.3
 PyWavelets==1.0.1
-PyYAML==3.13
+PyYAML==5.4
 readchar==2.0.1
 requests==2.19.1
 scikit-image==0.14.1
