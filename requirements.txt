@@ -29,7 +29,7 @@ Markdown==3.0.1
 matplotlib==3.0.0
 networkx==2.2
 numpy==1.15.2
-opencv-python==3.4.3.18
+opencv-python==3.4.7.28
 parso==0.3.1
 pexpect==4.6.0
 pickleshare==0.7.5
